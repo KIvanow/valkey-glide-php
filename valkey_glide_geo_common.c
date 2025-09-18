@@ -22,6 +22,7 @@
 
 #include "command_response.h"
 #include "valkey_glide_commands_common.h"
+#include "valkey_glide_z_common.h"
 
 /* Import the string conversion functions from command_response.c */
 extern char* long_to_string(long value, size_t* len);
@@ -513,90 +514,55 @@ int prepare_geo_search_store_args(geo_command_args_t* args,
  * RESULT PROCESSING FUNCTIONS
  * ==================================================================== */
 
-/**
- * Process integer result (for commands returning counts)
- * Returns 1 on success, 0 on failure
- */
-int process_geo_int_result(CommandResult* result, void* output) {
-    long* output_value = (long*) output;
-
-    if (!result || !result->response || !output_value) {
+int process_geo_int_result_async(CommandResponse* response, void* output, zval* return_value) {
+    if (!response) {
+        ZVAL_LONG(return_value, 0);
         return 0;
     }
 
-    /* Handle integer response */
-    if (result->response->response_type == Int) {
-        *output_value = result->response->int_value;
+    if (response->response_type == Int) {
+        ZVAL_LONG(return_value, response->int_value);
+        return 1;
+    } else if (response->response_type == Null) {
+        ZVAL_NULL(return_value);
         return 1;
     }
-
+    ZVAL_LONG(return_value, 0);
     return 0;
 }
 
-/**
- * Process double result (for GEODIST command)
- * Returns: 1 = success with value, 0 = not found or error
- */
-int process_geo_double_result(CommandResult* result, void* output) {
-    double* output_value = (double*) output;
-
-    if (!result || !result->response || !output_value) {
+int process_geo_double_result_async(CommandResponse* response, void* output, zval* return_value) {
+    if (!response) {
+        ZVAL_NULL(return_value);
         return 0;
     }
 
-    /* Handle Null response (member not found) */
-    if (result->response->response_type == Null) {
-        return 0;
-    }
-
-    /* Handle string response (parse as double) */
-    if (result->response->response_type == String) {
-        *output_value = atof(result->response->string_value);
+    if (response->response_type == Null) {
+        ZVAL_NULL(return_value);
+        return 1;
+    } else if (response->response_type == String) {
+        ZVAL_DOUBLE(return_value, atof(response->string_value));
+        return 1;
+    } else if (response->response_type == Float) {
+        ZVAL_DOUBLE(return_value, response->float_value);
         return 1;
     }
-
-    /* Handle float response */
-    if (result->response->response_type == Float) {
-        *output_value = result->response->float_value;
-        return 1;
-    }
-
     return 0;
 }
 
-/**
- * Process array result (generic handler for array responses)
- * Returns 1 on success, 0 on failure
- */
-int process_geo_array_result(CommandResult* result, void* output) {
-    zval* return_value = (zval*) output;
 
-    if (!result || !result->response || !return_value) {
-        return 0;
-    }
-
-    /* Use command_response utility to convert to PHP array */
-    return command_response_to_zval(
-        result->response, return_value, COMMAND_RESPONSE_NOT_ASSOSIATIVE, false);
-}
-
-/**
- * Process GEOHASH command result (array of geohash strings or nil)
- * Returns 1 on success, 0 on failure
- */
-int process_geo_hash_result(CommandResult* result, void* output) {
-    zval* return_value = (zval*) output;
-
-    if (!result || !result->response || !return_value) {
+int process_geo_hash_result_async(CommandResponse* response, void* output, zval* return_value) {
+    if (!response || !return_value) {
+        array_init(return_value);
         return 0;
     }
 
     /* Process array of geohash strings */
-    if (result->response->response_type == Array) {
+    if (response->response_type == Array) {
         array_init(return_value);
 
-        for (size_t i = 0; i < result->response->array_value_len; i++) {
-            struct CommandResponse* element = &result->response->array_value[i];
+        for (size_t i = 0; i < response->array_value_len; i++) {
+            struct CommandResponse* element = &response->array_value[i];
             if (element->response_type == String) {
                 add_next_index_stringl(
                     return_value, element->string_value, element->string_value_len);
@@ -607,26 +573,27 @@ int process_geo_hash_result(CommandResult* result, void* output) {
         return 1;
     }
 
+    /* If not an array, initialize empty array and return */
+    array_init(return_value);
     return 0;
 }
 
-/**
- * Process GEOPOS command result (array of [longitude, latitude] coordinates or nil)
- * Returns 1 on success, 0 on failure
- */
-int process_geo_pos_result(CommandResult* result, void* output) {
-    zval* return_value = (zval*) output;
 
-    if (!result || !result->response || !return_value) {
+/**
+ * Batch-compatible async result processor for GEOPOS responses
+ */
+int process_geo_pos_result_async(CommandResponse* response, void* output, zval* return_value) {
+    if (!response || !return_value) {
+        array_init(return_value);
         return 0;
     }
 
     /* Process array of coordinates */
-    if (result->response->response_type == Array) {
+    if (response->response_type == Array) {
         array_init(return_value);
 
-        for (size_t i = 0; i < result->response->array_value_len; i++) {
-            struct CommandResponse* element = &result->response->array_value[i];
+        for (size_t i = 0; i < response->array_value_len; i++) {
+            struct CommandResponse* element = &response->array_value[i];
 
             if (element->response_type == Array && element->array_value_len == 2) {
                 /* Create a position array with [longitude, latitude] */
@@ -657,44 +624,45 @@ int process_geo_pos_result(CommandResult* result, void* output) {
         return 1;
     }
 
+    /* If not an array, initialize empty array and return */
+    array_init(return_value);
     return 0;
 }
 
-
 /**
- * Process GEOSEARCH/GEOSEARCHSTORE command result
- * Returns 1 on success, 0 on failure
+ * Batch-compatible async result processor for GEOSEARCH responses
  */
-int process_geo_search_result(CommandResult* result, void* output) {
+int process_geo_search_result_async(CommandResponse* response, void* output, zval* return_value) {
     struct {
-        zval* return_value;
-        int   withcoord;
-        int   withdist;
-        int   withhash;
+        int withcoord;
+        int withdist;
+        int withhash;
     }* search_data = (void*) output;
 
-    zval* return_value = search_data->return_value;
-    int   withcoord    = search_data->withcoord;
-    int   withdist     = search_data->withdist;
-    int   withhash     = search_data->withhash;
-
-    if (!result || !result->response || !return_value) {
+    if (!response || !return_value || !search_data) {
+        efree(search_data);
+        array_init(return_value);
         return 0;
     }
+
+    int withcoord = search_data->withcoord;
+    int withdist  = search_data->withdist;
+    int withhash  = search_data->withhash;
 
     /* If no WITH* options, just return the array of names */
     if (!withcoord && !withdist && !withhash) {
         /* Simple case - just return the array */
+        efree(search_data);
         return command_response_to_zval(
-            result->response, return_value, COMMAND_RESPONSE_NOT_ASSOSIATIVE, false);
+            response, return_value, COMMAND_RESPONSE_NOT_ASSOSIATIVE, false);
     }
 
     /* Process the result and build an associative array */
-    if (result->response->response_type == Array) {
+    if (response->response_type == Array) {
         array_init(return_value);
 
-        for (size_t i = 0; i < result->response->array_value_len; i++) {
-            struct CommandResponse* element = &result->response->array_value[i];
+        for (size_t i = 0; i < response->array_value_len; i++) {
+            struct CommandResponse* element = &response->array_value[i];
 
             /* Process elements with member name and WITH* data */
             if (element->response_type == Array && element->array_value_len > 0) {
@@ -777,27 +745,32 @@ int process_geo_search_result(CommandResult* result, void* output) {
                 }
             }
         }
-
+        efree(search_data);
         return 1;
     }
 
+    /* If not an array, initialize empty array and return */
+    array_init(return_value);
+    efree(search_data);
     return 0;
 }
+
 
 /* ====================================================================
  * GENERIC EXECUTION FRAMEWORK
  * ==================================================================== */
 
 /**
- * Generic GEO-command execution framework
+ * Generic GEO-command execution framework with batch support
  */
-int execute_geo_generic_command(const void*            glide_client,
+int execute_geo_generic_command(valkey_glide_object*   valkey_glide,
                                 enum RequestType       cmd_type,
                                 geo_command_args_t*    args,
                                 void*                  result_ptr,
-                                geo_result_processor_t process_result) {
+                                geo_result_processor_t process_result,
+                                zval*                  return_value) {
     /* Check if client is valid */
-    if (!glide_client || !args || !process_result) {
+    if (!valkey_glide || !args) {
         return 0;
     }
 
@@ -868,8 +841,36 @@ int execute_geo_generic_command(const void*            glide_client,
         return 0;
     }
 
-    /* Execute the command */
-    CommandResult* result = execute_command(glide_client,
+    /* Check if we're in batch mode */
+    if (valkey_glide->is_in_batch_mode) {
+        /* In batch mode: buffer the command and return success */
+        int status = buffer_command_for_batch(valkey_glide,
+                                              cmd_type,
+                                              arg_values,
+                                              arg_lens,
+                                              arg_count,
+                                              result_ptr,
+                                              (z_result_processor_t) process_result);
+
+        /* Free allocated strings */
+        for (int i = 0; i < allocated_count; i++) {
+            if (allocated_strings[i]) {
+                efree(allocated_strings[i]);
+            }
+        }
+
+        if (allocated_strings)
+            efree(allocated_strings);
+        if (arg_values)
+            efree(arg_values);
+        if (arg_lens)
+            efree(arg_lens);
+
+        return status;
+    }
+
+    /* Execute the command synchronously */
+    CommandResult* result = execute_command(valkey_glide->glide_client,
                                             cmd_type,   /* command type */
                                             arg_count,  /* number of arguments */
                                             arg_values, /* arguments */
@@ -902,7 +903,7 @@ int execute_geo_generic_command(const void*            glide_client,
     }
 
     /* Process the result */
-    success = process_result(result, result_ptr);
+    success = process_result(result->response, result_ptr, return_value);
 
     /* Free the result */
     free_command_result(result);

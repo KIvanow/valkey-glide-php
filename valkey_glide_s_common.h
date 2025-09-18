@@ -94,7 +94,8 @@ typedef struct _s_command_args_t {
     int  has_limit; /* Whether limit is specified */
 
     /* Scan-specific parameters */
-    char** cursor; /* Cursor pointer for scan operations */
+    char** cursor;    /* Cursor pointer for scan operations */
+    zval*  scan_iter; /* Iterator for scan operations */
 
     const char* pattern;     /* MATCH pattern */
     size_t      pattern_len; /* Pattern length */
@@ -123,7 +124,7 @@ typedef struct _s_command_def_t {
  * ==================================================================== */
 
 /* Core execution framework */
-int execute_s_generic_command(const void*          glide_client,
+int execute_s_generic_command(valkey_glide_object* valkey_glide,
                               enum RequestType     cmd_type,
                               s_command_category_t category,
                               s_response_type_t    response_type,
@@ -157,15 +158,6 @@ int prepare_s_two_key_member_args(s_command_args_t* args,
                                   unsigned long**   args_len_out);
 int prepare_s_scan_args(s_command_args_t* args, uintptr_t** args_out, unsigned long** args_len_out);
 
-/* Response processing functions */
-int process_s_int_response(CommandResult* result, s_command_args_t* args, zval* return_value);
-int process_s_bool_response(CommandResult* result, s_command_args_t* args, zval* return_value);
-int process_s_set_response(CommandResult* result, s_command_args_t* args, zval* return_value);
-int process_s_mixed_response(CommandResult* result, s_command_args_t* args, zval* return_value);
-int process_s_scan_response(CommandResult*    result,
-                            enum RequestType  cmd_type,
-                            s_command_args_t* args,
-                            zval*             return_value);
 
 /* Utility functions */
 int  allocate_s_command_args(int count, uintptr_t** args_out, unsigned long** args_len_out);
@@ -198,22 +190,17 @@ int execute_scan_command(zval* object, int argc, zval* return_value, zend_class_
 int execute_sscan_command(zval* object, int argc, zval* return_value, zend_class_entry* ce);
 int execute_hscan_command(zval* object, int argc, zval* return_value, zend_class_entry* ce);
 
-/* Internal scan command functions */
-int execute_scan_command_internal(const void* glide_client,
-                                  long*       it,
-                                  const char* pattern,
-                                  size_t      pattern_len,
-                                  long        count,
-                                  zval*       return_value);
-int execute_gen_scan_command_internal(const void*      glide_client,
-                                      enum RequestType cmd_type,
-                                      const char*      key,
-                                      size_t           key_len,
-                                      char**           cursor,
-                                      const char*      pattern,
-                                      size_t           pattern_len,
-                                      long             count,
-                                      zval*            return_value);
+
+int execute_gen_scan_command_internal(valkey_glide_object* valkey_glide,
+                                      enum RequestType     cmd_type,
+                                      const char*          key,
+                                      size_t               key_len,
+                                      char**               cursor,
+                                      const char*          pattern,
+                                      size_t               pattern_len,
+                                      long                 count,
+                                      zval*                scan_iter,
+                                      zval*                return_value);
 
 /* Generic scan command wrapper for HSCAN, ZSCAN, SSCAN */
 int execute_scan_command_generic(
@@ -250,21 +237,6 @@ int execute_scan_command_generic(
         (args).members_count = (m_count);   \
     } while (0)
 
-/**
- * Set multi-key arguments
- */
-#define SET_S_KEYS_ARGS(args, k, k_count) \
-    do {                                  \
-        (args).keys       = (k);          \
-        (args).keys_count = (k_count);    \
-    } while (0)
-
-/**
- * Execute a simple S command with standard error handling
- */
-#define EXECUTE_S_COMMAND(client, cmd_type, category, response_type, args, return_val) \
-    execute_s_generic_command(                                                         \
-        (client), (cmd_type), (category), (response_type), &(args), (return_val))
 
 /* ====================================================================
  * S COMMAND MACROS

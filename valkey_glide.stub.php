@@ -198,13 +198,6 @@ class ValkeyGlide
     /**
      *
      * @var int
-     * @cvalue ATOMIC
-     *
-     */
-    public const ATOMIC = UNKNOWN;
-    /**
-     *
-     * @var int
      * @cvalue MULTI
      *
      */
@@ -572,7 +565,7 @@ class ValkeyGlide
     public function del(array|string $key, string ...$other_keys): ValkeyGlide|int|false;
 
     /**
-     * TODO Discard a transaction currently in progress.
+     * Discard a transaction currently in progress.
      *
      * @return ValkeyGlide|bool  True if we could discard the transaction.
      *
@@ -580,7 +573,7 @@ class ValkeyGlide
      * $valkey_glide->set('foo', 'bar');
      * $valkey_glide->discard();
      */
-    /* public function discard(): ValkeyGlide|bool;*/
+    public function discard(): ValkeyGlide|bool;
 
     /**
      * Dump ValkeyGlide' internal binary representation of a key.
@@ -684,7 +677,7 @@ class ValkeyGlide
      *              ->rpush('list', 'one', 'two', 'three')
      *              ->exec();
      */
-    /* TODO public function exec(): ValkeyGlide|array|false; */
+    public function exec(): ValkeyGlide|array|false;
 
     /**
      * Test if one or more keys exist.
@@ -1685,7 +1678,7 @@ class ValkeyGlide
      * $valkey_glide->get('foo');
      * $valkey_glide->exec();
      */
-    /* TODO public function multi(int $value = ValkeyGlide::MULTI): bool|ValkeyGlide; */
+    public function multi(int $value = ValkeyGlide::MULTI): bool|ValkeyGlide;
 
     public function object(string $subcommand, string $key): ValkeyGlide|int|string|false;
 
@@ -1797,7 +1790,7 @@ class ValkeyGlide
      *       ->rpush('mylist', 'a', 'b', 'c')
      *       ->exec();
      */
-   /* TODO  public function pipeline(): bool|ValkeyGlide; */
+     public function pipeline(): bool|ValkeyGlide;
 
 
     /**
@@ -2767,7 +2760,7 @@ class ValkeyGlide
      *
      * @return True on success and false on failure.
      */
-    /* TODO public function unwatch(): ValkeyGlide|bool; */
+    public function unwatch(): ValkeyGlide|bool;
 
     /**
      * Watch one or more keys for conditional execution of a transaction.
@@ -2807,7 +2800,7 @@ class ValkeyGlide
      * // bool(false)
      * var_dump($res);
      */
-   /* TODO  public function watch(array|string $key, string ...$other_keys): ValkeyGlide|bool; */
+    public function watch(array|string $key, string ...$other_keys): ValkeyGlide|bool;
 
     /**
      * Block the client up to the provided timeout until a certain number of replicas have confirmed

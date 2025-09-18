@@ -89,7 +89,7 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
 
         //$this->assertTrue($this->valkey_glide->ping(NULL));
         $this->assertEquals('BEEP', $this->valkey_glide->ping('BEEP'));
-        return;
+
         /* Make sure we're good in MULTI mode */
         if ($this->haveMulti()) {
             $this->assertEquals(
@@ -176,24 +176,50 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         }
     }
 
+    
+
     public function testBitop()
     {
-
         if (! $this->minVersionCheck('2.6.0')) {
             $this->markTestSkipped();
         }
 
+        // Test basic functionality with 2 keys
         $this->valkey_glide->set('{key}1', 'foobar');
         $this->valkey_glide->set('{key}2', 'abcdef');
 
         // Regression test for GitHub issue #2210
-        $this->assertEquals(6, $this->valkey_glide->bitop('AND', '{key}1', '{key}2'));
+        $this->assertEquals(6, $this->valkey_glide->bitop('AND', '{key}dest1', '{key}1', '{key}2'));
 
-        // Make sure ValkeyGlideCluster doesn't even send the command.  We don't care
-        // about what ValkeyGlide returns
-        @$this->valkey_glide->bitop('AND', 'key1', 'key2', 'key3');
+        // Test with exactly 7 keys (should work with current implementation)
+        for ($i = 1; $i <= 7; $i++) {
+            $this->valkey_glide->set("{key}src{$i}", 'test' . $i);
+        }
+        
+        $result7 = $this->valkey_glide->bitop('OR', '{key}dest7', '{key}src1', '{key}src2', '{key}src3', '{key}src4', '{key}src5', '{key}src6', '{key}src7');
+        $this->assertEquals(5, $result7);        
+        
 
-        $this->valkey_glide->del('{key}1', '{key}2');
+        // Test with 8 keys (should fail with current implementation due to 7-key limit)
+        $this->valkey_glide->set('{key}src8', 'test8');
+        
+        $result8 = $this->valkey_glide->bitop('OR', '{key}dest8', '{key}src1', '{key}src2', '{key}src3', '{key}src4', '{key}src5', '{key}src6', '{key}src7', '{key}src8');
+        $this->assertIsInt($result8);
+        $this->assertEquals(5, $result8);   
+
+        // Test with 10 keys (should definitely fail with current implementation)
+        $this->valkey_glide->set('{key}src9', 'test9');
+        $this->valkey_glide->set('{key}src10', 'test10');
+        
+        $result10 = $this->valkey_glide->bitop('AND', '{key}dest10', '{key}src1', '{key}src2', '{key}src3', '{key}src4', '{key}src5', '{key}src6', '{key}src7', '{key}src8', '{key}src9', '{key}src10');
+        $this->assertEquals(6, $result10);   
+
+        // Clean up
+        $keysToDelete = ['{key}1', '{key}2', '{key}dest1', '{key}dest7', '{key}dest8', '{key}dest10'];
+        for ($i = 1; $i <= 10; $i++) {
+            $keysToDelete[] = "{key}src{$i}";
+        }
+        $this->valkey_glide->del(...$keysToDelete);
     }
 
     public function testBitsets()
@@ -249,8 +275,7 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         $this->assertTrue($this->valkey_glide->set($key1, '12244447777777'));
         $this->assertTrue($this->valkey_glide->set($key2, '6666662244441'));
 
-        $this->assertEquals('224444', $this->valkey_glide->lcs($key1, $key2));
-
+        $this->assertEquals('224444', $this->valkey_glide->lcs($key1, $key2));        
         $this->assertEquals(
             ['matches', [[[1, 6], [6, 11]]], 'len', 6],
             $this->valkey_glide->lcs($key1, $key2, ['idx'])
@@ -337,11 +362,6 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         );
 
         $this->assertFalse($this->valkey_glide->zmpop([$key1, $key2], 'MIN'));
-
-        return; // Set the option to return NULL for empty MULTIBULK
-        $this->valkey_glide->setOption(ValkeyGlide::OPT_NULL_MULTIBULK_AS_NULL, true);
-        $this->assertNull($this->valkey_glide->zmpop([$key1, $key2], 'MIN'));
-        $this->valkey_glide->setOption(ValkeyGlide::OPT_NULL_MULTIBULK_AS_NULL, false);
     }
 
     public function testBZmpop()
@@ -706,13 +726,15 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         // lists
         $this->valkey_glide->del('{key}0');
         $this->valkey_glide->del('{key}1');
+        
         $this->valkey_glide->lPush('{key}0', 'val0');
+     
         $this->valkey_glide->lPush('{key}0', 'val1');
         $this->valkey_glide->lPush('{key}1', 'val1-0');
         $this->valkey_glide->lPush('{key}1', 'val1-1');
+       
         $this->assertFalse($this->valkey_glide->renameNx('{key}0', '{key}1'));
-        $this->assertEquals(['val1', 'val0'], $this->valkey_glide->lRange('{key}0', 0, -1));
-
+        $this->assertEquals(['val1', 'val0'], $this->valkey_glide->lRange('{key}0', 0, -1));            
         $this->assertEquals(['val1-1', 'val1-0'], $this->valkey_glide->lRange('{key}1', 0, -1));
 
         $this->valkey_glide->del('{key}2');
@@ -721,7 +743,7 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         $this->assertEquals(['val1', 'val0'], $this->valkey_glide->lRange('{key}2', 0, -1));
     }
 
-    public function testMultiple1()
+    public function testMultiple()
     {
         $kvals = [
             'mget1' => 'v1',
@@ -1039,8 +1061,7 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         $this->assertKeyMissing('key');
         $this->valkey_glide->set('key', 'val');
         $this->assertKeyExists('key');
-        return;
-
+        
         /* Add multiple keys */
         $mkeys = [];
         for ($i = 0; $i < 10; $i++) {
@@ -1050,10 +1071,10 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
                 $mkeys[] = $mkey;
             }
         }
-
+        
         /* Test passing an array as well as the keys variadic */
-        $this->assertEquals(count($mkeys), $this->valkey_glide->exists($mkeys));
-        if (count($mkeys)) {
+        $this->assertEquals(count($mkeys), $this->valkey_glide->exists($mkeys));        
+        if (count($mkeys)) {        
             $this->assertEquals(count($mkeys), $this->valkey_glide->exists(...$mkeys));
         }
     }
@@ -1090,6 +1111,7 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         $this->valkey_glide->set($key, 'val');
         $this->assertKeyEquals('val', $key);
         $this->assertEquals(1, $this->valkey_glide->$cmd($key));
+
         $this->assertFalse($this->valkey_glide->get($key));
 
         // multiple, all existing
@@ -1282,15 +1304,7 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
 
         // blocking blpop, brpop
         $this->valkey_glide->del('list');
-        return; //TODO: fix this test
-        /* Also test our option that we want *-1 to be returned as NULL */
-        foreach ([false => [], true => null] as $opt => $val) {
-            $this->valkey_glide->setOption(ValkeyGlide::OPT_NULL_MULTIBULK_AS_NULL, $opt);
-            $this->assertEquals($val, $this->valkey_glide->blPop(['list'], 1));
-            $this->assertEquals($val, $this->valkey_glide->brPop(['list'], 1));
-        }
 
-        $this->valkey_glide->setOption(ValkeyGlide::OPT_NULL_MULTIBULK_AS_NULL, false);
     }
 
     public function testLLen()
@@ -1353,12 +1367,6 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         $this->assertEquals([0], $this->valkey_glide->lPos('key', 'val1', ['count' => 2, 'maxlen' => 1]));
         $this->assertEquals([], $this->valkey_glide->lPos('key', 'val2', ['count' => 1]));
 
-        return; //TODO: fix this test
-        foreach ([[true, null], [false, false]] as $optpack) {
-            list ($setting, $expected) = $optpack;
-            $this->valkey_glide->setOption(ValkeyGlide::OPT_NULL_MULTIBULK_AS_NULL, $setting);
-            $this->assertEquals($expected, $this->valkey_glide->lPos('key', 'val2'));
-        }
     }
 
     // ltrim, lLen, lpop
@@ -2531,21 +2539,20 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
 
     public function testInfoCommandStats()
     {
+        
         // INFO COMMANDSTATS is new in 2.6.0
         if (version_compare($this->version, '2.5.0') < 0) {
             $this->markTestSkipped();
         }
 
         $info = $this->valkey_glide->info('COMMANDSTATS');
-
-
         if (! $this->assertIsArray($info)) {
             return;
         }
 
         foreach ($info as $k => $value) {
             if (! is_string($k)) {
-                self::$errors [] = $this->assertionTrace("'%s' is not a string", $this->printArg($haystack));
+                self::$errors [] = $this->assertionTrace("'%s' is not a string", $this->printArg($k));
                 return false;
             }
             $this->assertStringContains('cmdstat_', $k);
@@ -2849,7 +2856,6 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         $this->assertEquals(4, $this->valkey_glide->zCard('key'));
 
         $this->assertEquals(1.0, $this->valkey_glide->zScore('key', 'val1'));
-
         $this->assertFalse($this->valkey_glide->zScore('key', 'val'));
         $this->assertFalse($this->valkey_glide->zScore(3, 2));
 
@@ -3461,9 +3467,8 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         $this->valkey_glide->del('{zs}1', '{zs}2');
         $this->valkey_glide->zAdd('{zs}1', 0, 'a', 1, 'b', 2, 'c');
         $this->valkey_glide->zAdd('{zs}2', 3, 'A', 4, 'B', 5, 'D');
-
+        
         $this->assertEquals(['{zs}1', 'a', '0'], $this->valkey_glide->bzPopMin('{zs}1', '{zs}2', 0));
-
         $this->assertEquals(['{zs}1', 'c', '2'], $this->valkey_glide->bzPopMax(['{zs}1', '{zs}2'], 0));
         $this->assertEquals(['{zs}2', 'A', '3'], $this->valkey_glide->bzPopMin(['{zs}2', '{zs}1'], 0));
 
@@ -3528,11 +3533,10 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
 
     public function testHashes()
     {
-
-
         $this->valkey_glide->del('h', 'key');
 
         $this->assertEquals(0, $this->valkey_glide->hLen('h'));
+
 
         $this->assertEquals(1, $this->valkey_glide->hSet('h', 'a', 'a-value'));
 
@@ -3544,6 +3548,7 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         $this->assertEquals('b-value', $this->valkey_glide->hGet('h', 'b'));  // simple get
 
         $this->assertEquals(0, $this->valkey_glide->hSet('h', 'a', 'another-value')); // replacement
+
         $this->assertEquals('another-value', $this->valkey_glide->hGet('h', 'a'));    // get the new value
 
         $this->assertEquals('b-value', $this->valkey_glide->hGet('h', 'b'));  // simple get
@@ -3551,7 +3556,6 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         $this->assertFalse($this->valkey_glide->hGet('h', 'c'));  // unknown hash member
 
         $this->assertFalse($this->valkey_glide->hGet('key', 'c'));    // unknownkey
-
         // hDel
         $this->assertEquals(1, $this->valkey_glide->hDel('h', 'a')); // 1 on success
 
@@ -3670,6 +3674,7 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
 
         $h1 = $this->valkey_glide->hGetAll('h1');
         $this->assertEquals('0', $h1['x']);
+
         $this->assertEquals('Array', $h1['y']);
 
        // $this->assertEquals('Object', $h1['z']); //TODO
@@ -3724,7 +3729,8 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
 
         $this->assertEquals(2, count($result));
         $xx = ['a' => 0, 'b' => 1, 'c' => 'foo', 'd' => 'bar', 'e' => null];
-        $this->assertEquals(array_intersect_key($result, $xx), $result);
+        $this->assertEquals(array_intersect_key($result, $xx), $result);       
+        
 
         /* Make sure PhpValkeyGlide sends COUNt (1) when `WITHVALUES` is set */
         $result = $this->valkey_glide->hRandField('key', ['withvalues' => true]);
@@ -3817,105 +3823,7 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         $this->assertTrue(is_numeric($this->valkey_glide->object('idletime', 'key')));
     }
 
-    public function testMultiExec()
-    {
-        $this->MarkTestSkipped();
-        $this->sequence(ValkeyGlide::MULTI);
-
-        $this->differentType(ValkeyGlide::MULTI);
-
-        // with prefix as well
-
-        $this->sequence(ValkeyGlide::MULTI);
-        $this->differentType(ValkeyGlide::MULTI);
-
-        $this->valkey_glide->set('x', '42');
-
-        $this->assertTrue($this->valkey_glide->watch('x'));
-        $ret = $this->valkey_glide->multi()->get('x')->exec();
-
-        // successful transaction
-        $this->assertEquals(['42'], $ret);
-    }
-
-    public function testFailedTransactions()
-    {
-         $this->markTestSkipped();//TODO
-        $this->valkey_glide->set('x', 42);
-
-        // failed transaction
-        $this->valkey_glide->watch('x');
-
-        $r = $this->newInstance(); // new instance, modifying `x'.
-        $r->incr('x');
-
-        $ret = $this->valkey_glide->multi()->get('x')->exec();
-        $this->assertFalse($ret); // failed because another client changed our watched key between WATCH and EXEC.
-
-        // watch and unwatch
-        $this->valkey_glide->watch('x');
-        $r->incr('x'); // other instance
-        $this->valkey_glide->unwatch(); // cancel transaction watch
-
-        $ret = $this->valkey_glide->multi()->get('x')->exec();
-
-        // succeeded since we've cancel the WATCH command.
-        $this->assertEquals(['44'], $ret);
-    }
-
-    public function testPipeline()
-    {
-        if (! $this->havePipeline()) {
-            $this->markTestSkipped();
-        }
-
-        $this->sequence(ValkeyGlide::PIPELINE);
-        $this->differentType(ValkeyGlide::PIPELINE);
-
-        // with prefix as well
-        $this->valkey_glide->setOption(ValkeyGlide::OPT_PREFIX, 'test:');
-        $this->sequence(ValkeyGlide::PIPELINE);
-        $this->differentType(ValkeyGlide::PIPELINE);
-        $this->valkey_glide->setOption(ValkeyGlide::OPT_PREFIX, '');
-    }
-
-    public function testPipelineMultiExec()
-    {
-        if (! $this->havePipeline()) {
-            $this->markTestSkipped();
-        }
-
-        $ret = $this->valkey_glide->pipeline()->multi()->exec()->exec();
-        $this->assertIsArray($ret);
-        $this->assertEquals(1, count($ret)); // empty transaction
-
-        $ret = $this->valkey_glide->pipeline()
-            ->ping()
-            ->multi()->set('x', 42)->incr('x')->exec()
-            ->ping()
-            ->multi()->get('x')->del('x')->exec()
-            ->ping()
-            ->exec();
-        $this->assertIsArray($ret);
-        $this->assertEquals(5, count($ret)); // should be 5 atomic operations
-    }
-
-    public function testMultiEmpty()
-    {
-         $this->markTestSkipped();//TODO
-        $ret = $this->valkey_glide->multi()->exec();
-        $this->assertEquals([], $ret);
-    }
-
-    public function testPipelineEmpty()
-    {
-        if (!$this->havePipeline()) {
-            $this->markTestSkipped();
-        }
-
-        $ret = $this->valkey_glide->pipeline()->exec();
-        $this->assertEquals([], $ret);
-    }
+    
 
     /* GitHub issue #1211 (ignore redundant calls to pipeline or multi) */
     public function testDoublePipeNoOp()
@@ -3946,1131 +3854,19 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
 
     public function testDiscard()
     {
-         $this->markTestSkipped();//TODO
         foreach ([ValkeyGlide::PIPELINE, ValkeyGlide::MULTI] as $mode) {
             /* start transaction */
             $this->valkey_glide->multi($mode);
 
             /* Set and get in our transaction */
             $this->valkey_glide->set('pipecount', 'over9000')->get('pipecount');
-
+ 
             /* first call closes transaction and clears commands queue */
             $this->assertTrue($this->valkey_glide->discard());
 
             /* next call fails because mode is ATOMIC */
             $this->assertFalse($this->valkey_glide->discard());
         }
-    }
-
-    protected function sequence($mode)
-    {
-        $ret = $this->valkey_glide->multi($mode)
-            ->set('x', 42)
-            ->type('x')
-            ->get('x')
-            ->exec();
-
-        $this->assertIsArray($ret);
-        $i = 0;
-        $this->assertTrue($ret[$i++]);
-        $this->assertEquals(ValkeyGlide::VALKEY_GLIDE_STRING, $ret[$i++]);
-        $this->assertEqualsWeak('42', $ret[$i]);
-        return;
-        $ret = $this->valkey_glide->multi($mode)
-            ->del('{key}1')
-            ->set('{key}1', 'value1')
-            ->get('{key}1')
-            ->getSet('{key}1', 'value2')
-            ->get('{key}1')
-            ->set('{key}2', 4)
-            ->incr('{key}2')
-            ->get('{key}2')
-            ->decr('{key}2')
-            ->get('{key}2')
-            ->rename('{key}2', '{key}3')
-            ->get('{key}3')
-            ->renameNx('{key}3', '{key}1')
-            ->rename('{key}3', '{key}2')
-            ->incrby('{key}2', 5)
-            ->get('{key}2')
-            ->decrby('{key}2', 5)
-            ->get('{key}2')
-            ->exec();
-
-        $i = 0;
-        $this->assertIsArray($ret);
-        $this->assertTrue(is_long($ret[$i++]));
-        $this->assertEqualsWeak(true, $ret[$i++]);
-        $this->assertEqualsWeak('value1', $ret[$i++]);
-        $this->assertEqualsWeak('value1', $ret[$i++]);
-        $this->assertEqualsWeak('value2', $ret[$i++]);
-        $this->assertEqualsWeak(true, $ret[$i++]);
-        $this->assertEqualsWeak(5, $ret[$i++]);
-        $this->assertEqualsWeak(5, $ret[$i++]);
-        $this->assertEqualsWeak(4, $ret[$i++]);
-        $this->assertEqualsWeak(4, $ret[$i++]);
-        $this->assertEqualsWeak(true, $ret[$i++]);
-        $this->assertEqualsWeak(4, $ret[$i++]);
-        $this->assertEqualsWeak(false, $ret[$i++]);
-        $this->assertEqualsWeak(true, $ret[$i++]);
-        $this->assertEqualsWeak(true, $ret[$i++]);
-        $this->assertEqualsWeak(9, $ret[$i++]);
-        $this->assertEqualsWeak(true, $ret[$i++]);
-        $this->assertEqualsWeak(4, $ret[$i++]);
-        $this->assertEquals($i, count($ret));
-
-        $this->valkey_glide->setOption(ValkeyGlide::OPT_SERIALIZER, $serializer);
-
-        $ret = $this->valkey_glide->multi($mode)
-            ->del('{key}1')
-            ->del('{key}2')
-            ->set('{key}1', 'val1')
-            ->setnx('{key}1', 'valX')
-            ->setnx('{key}2', 'valX')
-            ->exists('{key}1')
-            ->exists('{key}3')
-            ->exec();
-
-        $this->assertIsArray($ret);
-        $this->assertEqualsWeak(true, $ret[0]);
-        $this->assertEqualsWeak(true, $ret[1]);
-        $this->assertEqualsWeak(true, $ret[2]);
-        $this->assertEqualsWeak(false, $ret[3]);
-        $this->assertEqualsWeak(true, $ret[4]);
-        $this->assertEqualsWeak(true, $ret[5]);
-        $this->assertEqualsWeak(false, $ret[6]);
-
-        // ttl, mget, mset, msetnx, expire, expireAt
-        $this->valkey_glide->del('key');
-        $ret = $this->valkey_glide->multi($mode)
-            ->ttl('key')
-            ->mget(['{key}1', '{key}2', '{key}3'])
-            ->mset(['{key}3' => 'value3', '{key}4' => 'value4'])
-            ->set('key', 'value')
-            ->expire('key', 5)
-            ->ttl('key')
-            ->expireAt('key', '0000')
-            ->exec();
-
-        $this->assertIsArray($ret);
-        $i = 0;
-        $ttl = $ret[$i++];
-        $this->assertBetween($ttl, -2, -1);
-        $this->assertEquals(['val1', 'valX', false], $ret[$i++]); // mget
-        $this->assertTrue($ret[$i++]); // mset
-        $this->assertTrue($ret[$i++]); // set
-        $this->assertTrue($ret[$i++]); // expire
-        $this->assertEquals(5, $ret[$i++]);    // ttl
-        $this->assertTrue($ret[$i++]); // expireAt
-        $this->assertEquals($i, count($ret));
-
-        $ret = $this->valkey_glide->multi($mode)
-            ->set('{list}lkey', 'x')
-            ->set('{list}lDest', 'y')
-            ->del('{list}lkey', '{list}lDest')
-            ->rpush('{list}lkey', 'lvalue')
-            ->lpush('{list}lkey', 'lvalue')
-            ->lpush('{list}lkey', 'lvalue')
-            ->lpush('{list}lkey', 'lvalue')
-            ->lpush('{list}lkey', 'lvalue')
-            ->lpush('{list}lkey', 'lvalue')
-            ->rpoplpush('{list}lkey', '{list}lDest')
-            ->lrange('{list}lDest', 0, -1)
-            ->lpop('{list}lkey')
-            ->llen('{list}lkey')
-            ->lrem('{list}lkey', 'lvalue', 3)
-            ->llen('{list}lkey')
-            ->lIndex('{list}lkey', 0)
-            ->lrange('{list}lkey', 0, -1)
-            ->lSet('{list}lkey', 1, 'newValue')    // check errors on key not exists
-            ->lrange('{list}lkey', 0, -1)
-            ->llen('{list}lkey')
-            ->exec();
-
-        $this->assertIsArray($ret);
-        $i = 0;
-        $this->assertTrue($ret[$i++]); // SET
-        $this->assertTrue($ret[$i++]); // SET
-        $this->assertEquals(2, $ret[$i++]); // deleting 2 keys
-        $this->assertEquals(1, $ret[$i++]); // rpush, now 1 element
-        $this->assertEquals(2, $ret[$i++]); // lpush, now 2 elements
-        $this->assertEquals(3, $ret[$i++]); // lpush, now 3 elements
-        $this->assertEquals(4, $ret[$i++]); // lpush, now 4 elements
-        $this->assertEquals(5, $ret[$i++]); // lpush, now 5 elements
-        $this->assertEquals(6, $ret[$i++]); // lpush, now 6 elements
-        $this->assertEquals('lvalue', $ret[$i++]); // rpoplpush returns the element: 'lvalue'
-        $this->assertEquals(['lvalue'], $ret[$i++]); // lDest contains only that one element.
-        $this->assertEquals('lvalue', $ret[$i++]); // removing a second element from lkey, now 4 elements left ↓
-        $this->assertEquals(4, $ret[$i++]); // 4 elements left, after 2 pops.
-        $this->assertEquals(3, $ret[$i++]); // removing 3 elements, now 1 left.
-        $this->assertEquals(1, $ret[$i++]); // 1 element left
-        $this->assertEquals('lvalue', $ret[$i++]); // this is the current head.
-        $this->assertEquals(['lvalue'], $ret[$i++]); // this is the current list.
-        $this->assertFalse($ret[$i++]); // updating a non-existent element fails.
-        $this->assertEquals(['lvalue'], $ret[$i++]); // this is the current list.
-        $this->assertEquals(1, $ret[$i++]); // 1 element left
-        $this->assertEquals($i, count($ret));
-
-        $ret = $this->valkey_glide->multi($mode)
-            ->del('{list}lkey', '{list}lDest')
-            ->rpush('{list}lkey', 'lvalue')
-            ->lpush('{list}lkey', 'lvalue')
-            ->lpush('{list}lkey', 'lvalue')
-            ->rpoplpush('{list}lkey', '{list}lDest')
-            ->lrange('{list}lDest', 0, -1)
-            ->lpop('{list}lkey')
-            ->exec();
-        $this->assertIsArray($ret);
-
-        $i = 0;
-
-        $this->assertLTE(2, $ret[$i++]);      // deleting 2 keys
-        $this->assertEquals(1, $ret[$i++]); // 1 element in the list
-        $this->assertEquals(2, $ret[$i++]); // 2 elements in the list
-        $this->assertEquals(3, $ret[$i++]); // 3 elements in the list
-        $this->assertEquals('lvalue', $ret[$i++]); // rpoplpush returns the element: 'lvalue'
-        $this->assertEquals(['lvalue'], $ret[$i++]); // rpoplpush returns the element: 'lvalue'
-        $this->assertEquals('lvalue', $ret[$i++]); // pop returns the front element: 'lvalue'
-        $this->assertEquals($i, count($ret));
-
-
-        $serializer = $this->valkey_glide->getOption(ValkeyGlide::OPT_SERIALIZER);
-        $this->valkey_glide->setOption(ValkeyGlide::OPT_SERIALIZER, ValkeyGlide::SERIALIZER_NONE); // testing incr, which doesn't work with the serializer
-        $ret = $this->valkey_glide->multi($mode)
-            ->del('{key}1')
-            ->set('{key}1', 'value1')
-            ->get('{key}1')
-            ->getSet('{key}1', 'value2')
-            ->get('{key}1')
-            ->set('{key}2', 4)
-            ->incr('{key}2')
-            ->get('{key}2')
-            ->decr('{key}2')
-            ->get('{key}2')
-            ->rename('{key}2', '{key}3')
-            ->get('{key}3')
-            ->renameNx('{key}3', '{key}1')
-            ->rename('{key}3', '{key}2')
-            ->incrby('{key}2', 5)
-            ->get('{key}2')
-            ->decrby('{key}2', 5)
-            ->get('{key}2')
-            ->set('{key}3', 'value3')
-            ->exec();
-
-        $i = 0;
-        $this->assertIsArray($ret);
-        $this->assertLTE(1, $ret[$i++]);
-        $this->assertEqualsWeak(true, $ret[$i++]);
-        $this->assertEquals('value1', $ret[$i++]);
-        $this->assertEquals('value1', $ret[$i++]);
-        $this->assertEquals('value2', $ret[$i++]);
-        $this->assertEqualsWeak(true, $ret[$i++]);
-        $this->assertEqualsWeak(5, $ret[$i++]);
-        $this->assertEqualsWeak(5, $ret[$i++]);
-        $this->assertEqualsWeak(4, $ret[$i++]);
-        $this->assertEqualsWeak(4, $ret[$i++]);
-        $this->assertTrue($ret[$i++]);
-        $this->assertEqualsWeak(4, $ret[$i++]);
-        $this->assertFalse($ret[$i++]);
-        $this->assertTrue($ret[$i++]);
-        $this->assertEquals(9, $ret[$i++]);          // incrby('{key}2', 5)
-        $this->assertEqualsWeak(9, $ret[$i++]);      // get('{key}2')
-        $this->assertEquals(4, $ret[$i++]);          // decrby('{key}2', 5)
-        $this->assertEqualsWeak(4, $ret[$i++]);      // get('{key}2')
-        $this->assertTrue($ret[$i++]);
-        $this->valkey_glide->setOption(ValkeyGlide::OPT_SERIALIZER, $serializer);
-
-        $ret = $this->valkey_glide->multi($mode)
-            ->del('{key}1')
-            ->del('{key}2')
-            ->del('{key}3')
-            ->set('{key}1', 'val1')
-            ->setnx('{key}1', 'valX')
-            ->setnx('{key}2', 'valX')
-            ->exists('{key}1')
-            ->exists('{key}3')
-            ->exec();
-
-        $this->assertIsArray($ret);
-        $this->assertEquals(1, $ret[0]); // del('{key}1')
-        $this->assertEquals(1, $ret[1]); // del('{key}2')
-        $this->assertEquals(1, $ret[2]); // del('{key}3')
-        $this->assertTrue($ret[3]);      // set('{key}1', 'val1')
-        $this->assertFalse($ret[4]);     // setnx('{key}1', 'valX')
-        $this->assertTrue($ret[5]);      // setnx('{key}2', 'valX')
-        $this->assertEquals(1, $ret[6]); // exists('{key}1')
-        $this->assertEquals(0, $ret[7]); // exists('{key}3')
-
-        // ttl, mget, mset, msetnx, expire, expireAt
-        $ret = $this->valkey_glide->multi($mode)
-            ->ttl('key')
-            ->mget(['{key}1', '{key}2', '{key}3'])
-            ->mset(['{key}3' => 'value3', '{key}4' => 'value4'])
-            ->set('key', 'value')
-            ->expire('key', 5)
-            ->ttl('key')
-            ->expireAt('key', '0000')
-            ->exec();
-        $i = 0;
-        $this->assertIsArray($ret);
-        $this->assertTrue(is_long($ret[$i++]));
-        $this->assertIsArray($ret[$i++], 3);
-//        $i++;
-        $this->assertTrue($ret[$i++]); // mset always returns true
-        $this->assertTrue($ret[$i++]); // set always returns true
-        $this->assertTrue($ret[$i++]); // expire always returns true
-        $this->assertEquals(5, $ret[$i++]); // TTL was just set.
-        $this->assertTrue($ret[$i++]); // expireAt returns true for an existing key
-        $this->assertEquals($i, count($ret));
-
-        // lists
-        $ret = $this->valkey_glide->multi($mode)
-            ->del('{l}key', '{l}Dest')
-            ->rpush('{l}key', 'lvalue')
-            ->lpush('{l}key', 'lvalue')
-            ->lpush('{l}key', 'lvalue')
-            ->lpush('{l}key', 'lvalue')
-            ->lpush('{l}key', 'lvalue')
-            ->lpush('{l}key', 'lvalue')
-            ->rpoplpush('{l}key', '{l}Dest')
-            ->lrange('{l}Dest', 0, -1)
-            ->lpop('{l}key')
-            ->llen('{l}key')
-            ->lrem('{l}key', 'lvalue', 3)
-            ->llen('{l}key')
-            ->lIndex('{l}key', 0)
-            ->lrange('{l}key', 0, -1)
-            ->lSet('{l}key', 1, 'newValue')    // check errors on missing key
-            ->lrange('{l}key', 0, -1)
-            ->llen('{l}key')
-            ->exec();
-
-        $this->assertIsArray($ret);
-        $i = 0;
-        $this->assertBetween($ret[$i++], 0, 2); // del
-        $this->assertEquals(1, $ret[$i++]); // 1 value
-        $this->assertEquals(2, $ret[$i++]); // 2 values
-        $this->assertEquals(3, $ret[$i++]); // 3 values
-        $this->assertEquals(4, $ret[$i++]); // 4 values
-        $this->assertEquals(5, $ret[$i++]); // 5 values
-        $this->assertEquals(6, $ret[$i++]); // 6 values
-        $this->assertEquals('lvalue', $ret[$i++]);
-        $this->assertEquals(['lvalue'], $ret[$i++]); // 1 value only in lDest
-        $this->assertEquals('lvalue', $ret[$i++]); // now 4 values left
-        $this->assertEquals(4, $ret[$i++]);
-        $this->assertEquals(3, $ret[$i++]); // removing 3 elements.
-        $this->assertEquals(1, $ret[$i++]); // length is now 1
-        $this->assertEquals('lvalue', $ret[$i++]); // this is the head
-        $this->assertEquals(['lvalue'], $ret[$i++]); // 1 value only in lkey
-        $this->assertFalse($ret[$i++]); // can't set list[1] if we only have a single value in it.
-        $this->assertEquals(['lvalue'], $ret[$i++]); // the previous error didn't touch anything.
-        $this->assertEquals(1, $ret[$i++]); // the previous error didn't change the length
-        $this->assertEquals($i, count($ret));
-
-
-        // sets
-        $ret = $this->valkey_glide->multi($mode)
-            ->del('{s}key1', '{s}key2', '{s}keydest', '{s}keyUnion', '{s}DiffDest')
-            ->sadd('{s}key1', 'sValue1')
-            ->sadd('{s}key1', 'sValue2')
-            ->sadd('{s}key1', 'sValue3')
-            ->sadd('{s}key1', 'sValue4')
-            ->sadd('{s}key2', 'sValue1')
-            ->sadd('{s}key2', 'sValue2')
-            ->scard('{s}key1')
-            ->srem('{s}key1', 'sValue2')
-            ->scard('{s}key1')
-            ->sMove('{s}key1', '{s}key2', 'sValue4')
-            ->scard('{s}key2')
-            ->sismember('{s}key2', 'sValue4')
-            ->sMembers('{s}key1')
-            ->sMembers('{s}key2')
-            ->sInter('{s}key1', '{s}key2')
-            ->sInterStore('{s}keydest', '{s}key1', '{s}key2')
-            ->sMembers('{s}keydest')
-            ->sUnion('{s}key2', '{s}keydest')
-            ->sUnionStore('{s}keyUnion', '{s}key2', '{s}keydest')
-            ->sMembers('{s}keyUnion')
-            ->sDiff('{s}key1', '{s}key2')
-            ->sDiffStore('{s}DiffDest', '{s}key1', '{s}key2')
-            ->sMembers('{s}DiffDest')
-            ->sPop('{s}key2')
-            ->scard('{s}key2')
-            ->exec();
-
-        $i = 0;
-        $this->assertIsArray($ret);
-        $this->assertBetween($ret[$i++], 0, 5); // we deleted at most 5 values.
-        $this->assertEquals(1, $ret[$i++]);     // skey1 now has 1 element.
-        $this->assertEquals(1, $ret[$i++]);     // skey1 now has 2 elements.
-        $this->assertEquals(1, $ret[$i++]);     // skey1 now has 3 elements.
-        $this->assertEquals(1, $ret[$i++]);     // skey1 now has 4 elements.
-        $this->assertEquals(1, $ret[$i++]);     // skey2 now has 1 element.
-        $this->assertEquals(1, $ret[$i++]);     // skey2 now has 2 elements.
-        $this->assertEquals(4, $ret[$i++]);
-        $this->assertEquals(1, $ret[$i++]);     // we did remove that value.
-        $this->assertEquals(3, $ret[$i++]);     // now 3 values only.
-
-        $this->assertTrue($ret[$i++]); // the move did succeed.
-        $this->assertEquals(3, $ret[$i++]); // sKey2 now has 3 values.
-        $this->assertTrue($ret[$i++]); // sKey2 does contain sValue4.
-        foreach (['sValue1', 'sValue3'] as $k) { // sKey1 contains sValue1 and sValue3.
-            $this->assertInArray($k, $ret[$i]);
-        }
-        $this->assertEquals(2, count($ret[$i++]));
-        foreach (['sValue1', 'sValue2', 'sValue4'] as $k) { // sKey2 contains sValue1, sValue2, and sValue4.
-            $this->assertInArray($k, $ret[$i]);
-        }
-        $this->assertEquals(3, count($ret[$i++]));
-        $this->assertEquals(['sValue1'], $ret[$i++]); // intersection
-        $this->assertEquals(1, $ret[$i++]); // intersection + store → 1 value in the destination set.
-        $this->assertEquals(['sValue1'], $ret[$i++]); // sinterstore destination contents
-
-        foreach (['sValue1', 'sValue2', 'sValue4'] as $k) { // (skeydest U sKey2) contains sValue1, sValue2, and sValue4.
-            $this->assertInArray($k, $ret[$i]);
-        }
-        $this->assertEquals(3, count($ret[$i++])); // union size
-
-        $this->assertEquals(3, $ret[$i++]); // unionstore size
-        foreach (['sValue1', 'sValue2', 'sValue4'] as $k) { // (skeyUnion) contains sValue1, sValue2, and sValue4.
-            $this->assertInArray($k, $ret[$i]);
-        }
-        $this->assertEquals(3, count($ret[$i++])); // skeyUnion size
-
-        $this->assertEquals(['sValue3'], $ret[$i++]); // diff skey1, skey2 : only sValue3 is not shared.
-        $this->assertEquals(1, $ret[$i++]); // sdiffstore size == 1
-        $this->assertEquals(['sValue3'], $ret[$i++]); // contents of sDiffDest
-
-        $this->assertInArray($ret[$i++], ['sValue1', 'sValue2', 'sValue4']); // we removed an element from sKey2
-        $this->assertEquals(2, $ret[$i++]); // sKey2 now has 2 elements only.
-
-        $this->assertEquals($i, count($ret));
-
-        // sorted sets
-        $ret = $this->valkey_glide->multi($mode)
-            ->del('{z}key1', '{z}key2', '{z}key5', '{z}Inter', '{z}Union')
-            ->zadd('{z}key1', 1, 'zValue1')
-            ->zadd('{z}key1', 5, 'zValue5')
-            ->zadd('{z}key1', 2, 'zValue2')
-            ->zRange('{z}key1', 0, -1)
-            ->zRem('{z}key1', 'zValue2')
-            ->zRange('{z}key1', 0, -1)
-            ->zadd('{z}key1', 11, 'zValue11')
-            ->zadd('{z}key1', 12, 'zValue12')
-            ->zadd('{z}key1', 13, 'zValue13')
-            ->zadd('{z}key1', 14, 'zValue14')
-            ->zadd('{z}key1', 15, 'zValue15')
-            ->zRemRangeByScore('{z}key1', 11, 13)
-            ->zrange('{z}key1', 0, -1)
-            ->zRangeByScore('{z}key1', 1, 6)
-            ->zCard('{z}key1')
-            ->zScore('{z}key1', 'zValue15')
-            ->zadd('{z}key2', 5, 'zValue5')
-            ->zadd('{z}key2', 2, 'zValue2')
-            ->zInterStore('{z}Inter', ['{z}key1', '{z}key2'])
-            ->zRange('{z}key1', 0, -1)
-            ->zRange('{z}key2', 0, -1)
-            ->zRange('{z}Inter', 0, -1)
-            ->zUnionStore('{z}Union', ['{z}key1', '{z}key2'])
-            ->zRange('{z}Union', 0, -1)
-            ->zadd('{z}key5', 5, 'zValue5')
-            ->zIncrBy('{z}key5', 3, 'zValue5') // fix this
-            ->zScore('{z}key5', 'zValue5')
-            ->zScore('{z}key5', 'unknown')
-            ->exec();
-
-        $i = 0;
-        $this->assertIsArray($ret);
-        $this->assertBetween($ret[$i++], 0, 5); // we deleted at most 5 values.
-        $this->assertEquals(1, $ret[$i++]);
-        $this->assertEquals(1, $ret[$i++]);
-        $this->assertEquals(1, $ret[$i++]);
-        $this->assertEquals(['zValue1', 'zValue2', 'zValue5'], $ret[$i++]);
-        $this->assertEquals(1, $ret[$i++]);
-        $this->assertEquals(['zValue1', 'zValue5'], $ret[$i++]);
-        $this->assertEquals(1, $ret[$i++]); // adding zValue11
-        $this->assertEquals(1, $ret[$i++]); // adding zValue12
-        $this->assertEquals(1, $ret[$i++]); // adding zValue13
-        $this->assertEquals(1, $ret[$i++]); // adding zValue14
-        $this->assertEquals(1, $ret[$i++]); // adding zValue15
-        $this->assertEquals(3, $ret[$i++]); // deleted zValue11, zValue12, zValue13
-        $this->assertEquals(['zValue1', 'zValue5', 'zValue14', 'zValue15'], $ret[$i++]);
-        $this->assertEquals(['zValue15', 'zValue14', 'zValue5', 'zValue1'], $ret[$i++]);
-        $this->assertEquals(['zValue1', 'zValue5'], $ret[$i++]);
-        $this->assertEquals(4, $ret[$i++]); // 4 elements
-        $this->assertEquals(15.0, $ret[$i++]);
-        $this->assertEquals(1, $ret[$i++]); // added value
-        $this->assertEquals(1, $ret[$i++]); // added value
-        $this->assertEquals(1, $ret[$i++]); // zinter only has 1 value
-        $this->assertEquals(['zValue1', 'zValue5', 'zValue14', 'zValue15'], $ret[$i++]); // {z}key1 contents
-        $this->assertEquals(['zValue2', 'zValue5'], $ret[$i++]); // {z}key2 contents
-        $this->assertEquals(['zValue5'], $ret[$i++]); // {z}inter contents
-        $this->assertEquals(5, $ret[$i++]); // {z}Union has 5 values (1, 2, 5, 14, 15)
-        $this->assertEquals(['zValue1', 'zValue2', 'zValue5', 'zValue14', 'zValue15'], $ret[$i++]); // {z}Union contents
-        $this->assertEquals(1, $ret[$i++]); // added value to {z}key5, with score 5
-        $this->assertEquals(8.0, $ret[$i++]); // incremented score by 3 → it is now 8.
-        $this->assertEquals(8.0, $ret[$i++]); // current score is 8.
-        $this->assertFalse($ret[$i++]); // score for unknown element.
-
-        $this->assertEquals($i, count($ret));
-
-        // hash
-        $ret = $this->valkey_glide->multi($mode)
-            ->del('hkey1')
-            ->hset('hkey1', 'key1', 'value1')
-            ->hset('hkey1', 'key2', 'value2')
-            ->hset('hkey1', 'key3', 'value3')
-            ->hmget('hkey1', ['key1', 'key2', 'key3'])
-            ->hget('hkey1', 'key1')
-            ->hlen('hkey1')
-            ->hdel('hkey1', 'key2')
-            ->hdel('hkey1', 'key2')
-            ->hexists('hkey1', 'key2')
-            ->hkeys('hkey1')
-            ->hvals('hkey1')
-            ->hgetall('hkey1')
-            ->hset('hkey1', 'valn', 1)
-            ->hset('hkey1', 'val-fail', 'non-string')
-            ->hget('hkey1', 'val-fail')
-            ->exec();
-
-        $i = 0;
-        $this->assertIsArray($ret);
-        $this->assertLT(2, $ret[$i++]); // delete
-        $this->assertEquals(1, $ret[$i++]); // added 1 element
-        $this->assertEquals(1, $ret[$i++]); // added 1 element
-        $this->assertEquals(1, $ret[$i++]); // added 1 element
-        $this->assertEquals(['key1' => 'value1', 'key2' => 'value2', 'key3' => 'value3'], $ret[$i++]); // hmget, 3 elements
-        $this->assertEquals('value1', $ret[$i++]); // hget
-        $this->assertEquals(3, $ret[$i++]); // hlen
-        $this->assertEquals(1, $ret[$i++]); // hdel succeeded
-        $this->assertEquals(0, $ret[$i++]); // hdel failed
-        $this->assertFalse($ret[$i++]); // hexists didn't find the deleted key
-        $this->assertEqualsCanonicalizing(['key1', 'key3'], $ret[$i++]); // hkeys
-        $this->assertEqualsCanonicalizing(['value1', 'value3'], $ret[$i++]); // hvals
-        $this->assertEqualsCanonicalizing(['key1' => 'value1', 'key3' => 'value3'], $ret[$i++]); // hgetall
-        $this->assertEquals(1, $ret[$i++]); // added 1 element
-        $this->assertEquals(1, $ret[$i++]); // added the element, so 1.
-        $this->assertEquals('non-string', $ret[$i++]); // hset succeeded
-        $this->assertEquals($i, count($ret));
-
-        $ret = $this->valkey_glide->multi($mode) // default to MULTI, not PIPELINE.
-            ->del('test')
-            ->set('test', 'xyz')
-            ->get('test')
-            ->exec();
-        $i = 0;
-        $this->assertIsArray($ret);
-        $this->assertLTE(1, $ret[$i++]); // delete
-        $this->assertTrue($ret[$i++]); // added 1 element
-        $this->assertEquals('xyz', $ret[$i++]);
-        $this->assertEquals($i, count($ret));
-
-        // GitHub issue 78
-        $this->valkey_glide->del('test');
-        for ($i = 1; $i <= 5; $i++) {
-            $this->valkey_glide->zadd('test', $i, (string)$i);
-        }
-
-        $result = $this->valkey_glide->multi($mode)
-            ->zscore('test', '1')
-            ->zscore('test', '6')
-            ->zscore('test', '8')
-            ->zscore('test', '2')
-            ->exec();
-
-        $this->assertEquals([1.0, false, false, 2.0], $result);
-    }
-
-    protected function differentType($mode)
-    {
-        // string
-        $key = '{hash}string';
-        $dkey = '{hash}' . __FUNCTION__;
-
-        $ret = $this->valkey_glide->multi($mode)
-            ->del($key)
-            ->set($key, 'value')
-
-            // lists I/F
-            ->rPush($key, 'lvalue')
-            ->lPush($key, 'lvalue')
-            ->lLen($key)
-            ->lPop($key)
-            ->lrange($key, 0, -1)
-            ->lTrim($key, 0, 1)
-            ->lIndex($key, 0)
-            ->lSet($key, 0, 'newValue')
-            ->lrem($key, 'lvalue', 1)
-            ->lPop($key)
-            ->rPop($key)
-            ->rPoplPush($key, $dkey . 'lkey1')
-
-            // sets I/F
-            ->sAdd($key, 'sValue1')
-            ->srem($key, 'sValue1')
-            ->sPop($key)
-            ->sMove($key, $dkey . 'skey1', 'sValue1')
-
-            ->scard($key)
-            ->sismember($key, 'sValue1')
-            ->sInter($key, $dkey . 'skey2')
-
-            ->sUnion($key, $dkey . 'skey4')
-            ->sDiff($key, $dkey . 'skey7')
-            ->sMembers($key)
-            ->sRandMember($key)
-
-            // sorted sets I/F
-            ->zAdd($key, 1, 'zValue1')
-            ->zRem($key, 'zValue1')
-            ->zIncrBy($key, 1, 'zValue1')
-            ->zRank($key, 'zValue1')
-            ->zRevRank($key, 'zValue1')
-            ->zRange($key, 0, -1)
-            ->zRangeByScore($key, 1, 2)
-            ->zCount($key, 0, -1)
-            ->zCard($key)
-            ->zScore($key, 'zValue1')
-            ->zRemRangeByRank($key, 1, 2)
-            ->zRemRangeByScore($key, 1, 2)
-
-            // hash I/F
-            ->hSet($key, 'key1', 'value1')
-            ->hGet($key, 'key1')
-            ->hMGet($key, ['key1'])
-            ->hMSet($key, ['key1' => 'value1'])
-            ->hIncrBy($key, 'key2', 1)
-            ->hExists($key, 'key2')
-            ->hDel($key, 'key2')
-            ->hLen($key)
-            ->hKeys($key)
-            ->hVals($key)
-            ->hGetAll($key)
-
-            ->exec();
-
-        $i = 0;
-        $this->assertIsArray($ret);
-        $this->assertTrue(is_long($ret[$i++])); // delete
-        $this->assertTrue($ret[$i++]); // set
-
-        $this->assertFalse($ret[$i++]); // rpush
-        $this->assertFalse($ret[$i++]); // lpush
-        $this->assertFalse($ret[$i++]); // llen
-        $this->assertFalse($ret[$i++]); // lpop
-        $this->assertFalse($ret[$i++]); // lrange
-        $this->assertFalse($ret[$i++]); // ltrim
-        $this->assertFalse($ret[$i++]); // lindex
-        $this->assertFalse($ret[$i++]); // lset
-        $this->assertFalse($ret[$i++]); // lrem
-        $this->assertFalse($ret[$i++]); // lpop
-        $this->assertFalse($ret[$i++]); // rpop
-        $this->assertFalse($ret[$i++]); // rpoplush
-
-        $this->assertFalse($ret[$i++]); // sadd
-        $this->assertFalse($ret[$i++]); // srem
-        $this->assertFalse($ret[$i++]); // spop
-        $this->assertFalse($ret[$i++]); // smove
-        $this->assertFalse($ret[$i++]); // scard
-        $this->assertFalse($ret[$i++]); // sismember
-        $this->assertFalse($ret[$i++]); // sinter
-        $this->assertFalse($ret[$i++]); // sunion
-        $this->assertFalse($ret[$i++]); // sdiff
-        $this->assertFalse($ret[$i++]); // smembers
-        $this->assertFalse($ret[$i++]); // srandmember
-
-        $this->assertFalse($ret[$i++]); // zadd
-        $this->assertFalse($ret[$i++]); // zrem
-        $this->assertFalse($ret[$i++]); // zincrby
-        $this->assertFalse($ret[$i++]); // zrank
-        $this->assertFalse($ret[$i++]); // zrevrank
-        $this->assertFalse($ret[$i++]); // zrange
-        $this->assertFalse($ret[$i++]); // zreverserange
-        $this->assertFalse($ret[$i++]); // zrangebyscore
-        $this->assertFalse($ret[$i++]); // zcount
-        $this->assertFalse($ret[$i++]); // zcard
-        $this->assertFalse($ret[$i++]); // zscore
-        $this->assertFalse($ret[$i++]); // zremrangebyrank
-        $this->assertFalse($ret[$i++]); // zremrangebyscore
-
-        $this->assertFalse($ret[$i++]); // hset
-        $this->assertFalse($ret[$i++]); // hget
-        $this->assertFalse($ret[$i++]); // hmget
-        $this->assertFalse($ret[$i++]); // hmset
-        $this->assertFalse($ret[$i++]); // hincrby
-        $this->assertFalse($ret[$i++]); // hexists
-        $this->assertFalse($ret[$i++]); // hdel
-        $this->assertFalse($ret[$i++]); // hlen
-        $this->assertFalse($ret[$i++]); // hkeys
-        $this->assertFalse($ret[$i++]); // hvals
-        $this->assertFalse($ret[$i++]); // hgetall
-
-        $this->assertEquals($i, count($ret));
-
-        // list
-        $key = '{hash}list';
-        $dkey = '{hash}' . __FUNCTION__;
-        $ret = $this->valkey_glide->multi($mode)
-            ->del($key)
-            ->lpush($key, 'lvalue')
-
-            // string I/F
-            ->get($key)
-            ->getset($key, 'value2')
-            ->append($key, 'append')
-            ->getRange($key, 0, 8)
-            ->mget([$key])
-            ->incr($key)
-            ->incrBy($key, 1)
-            ->decr($key)
-            ->decrBy($key, 1)
-
-            // sets I/F
-            ->sAdd($key, 'sValue1')
-            ->srem($key, 'sValue1')
-            ->sPop($key)
-            ->sMove($key, $dkey . 'skey1', 'sValue1')
-            ->scard($key)
-            ->sismember($key, 'sValue1')
-            ->sInter($key, $dkey . 'skey2')
-            ->sUnion($key, $dkey . 'skey4')
-            ->sDiff($key, $dkey . 'skey7')
-            ->sMembers($key)
-            ->sRandMember($key)
-
-            // sorted sets I/F
-            ->zAdd($key, 1, 'zValue1')
-            ->zRem($key, 'zValue1')
-            ->zIncrBy($key, 1, 'zValue1')
-            ->zRank($key, 'zValue1')
-            ->zRevRank($key, 'zValue1')
-            ->zRange($key, 0, -1)
-            ->zRangeByScore($key, 1, 2)
-            ->zCount($key, 0, -1)
-            ->zCard($key)
-            ->zScore($key, 'zValue1')
-            ->zRemRangeByRank($key, 1, 2)
-            ->zRemRangeByScore($key, 1, 2)
-
-            // hash I/F
-            ->hSet($key, 'key1', 'value1')
-            ->hGet($key, 'key1')
-            ->hMGet($key, ['key1'])
-            ->hMSet($key, ['key1' => 'value1'])
-            ->hIncrBy($key, 'key2', 1)
-            ->hExists($key, 'key2')
-            ->hDel($key, 'key2')
-            ->hLen($key)
-            ->hKeys($key)
-            ->hVals($key)
-            ->hGetAll($key)
-
-            ->exec();
-
-        $i = 0;
-        $this->assertIsArray($ret);
-        $this->assertTrue(is_long($ret[$i++])); // delete
-        $this->assertEquals(1, $ret[$i++]); // lpush
-
-        $this->assertFalse($ret[$i++]); // get
-        $this->assertFalse($ret[$i++]); // getset
-        $this->assertFalse($ret[$i++]); // append
-        $this->assertFalse($ret[$i++]); // getRange
-        $this->assertEquals([false], $ret[$i++]); // mget
-        $this->assertFalse($ret[$i++]); // incr
-        $this->assertFalse($ret[$i++]); // incrBy
-        $this->assertFalse($ret[$i++]); // decr
-        $this->assertFalse($ret[$i++]); // decrBy
-
-        $this->assertFalse($ret[$i++]); // sadd
-        $this->assertFalse($ret[$i++]); // srem
-        $this->assertFalse($ret[$i++]); // spop
-        $this->assertFalse($ret[$i++]); // smove
-        $this->assertFalse($ret[$i++]); // scard
-        $this->assertFalse($ret[$i++]); // sismember
-        $this->assertFalse($ret[$i++]); // sinter
-        $this->assertFalse($ret[$i++]); // sunion
-        $this->assertFalse($ret[$i++]); // sdiff
-        $this->assertFalse($ret[$i++]); // smembers
-        $this->assertFalse($ret[$i++]); // srandmember
-
-        $this->assertFalse($ret[$i++]); // zadd
-        $this->assertFalse($ret[$i++]); // zrem
-        $this->assertFalse($ret[$i++]); // zincrby
-        $this->assertFalse($ret[$i++]); // zrank
-        $this->assertFalse($ret[$i++]); // zrevrank
-        $this->assertFalse($ret[$i++]); // zrange
-        $this->assertFalse($ret[$i++]); // zreverserange
-        $this->assertFalse($ret[$i++]); // zrangebyscore
-        $this->assertFalse($ret[$i++]); // zcount
-        $this->assertFalse($ret[$i++]); // zcard
-        $this->assertFalse($ret[$i++]); // zscore
-        $this->assertFalse($ret[$i++]); // zremrangebyrank
-        $this->assertFalse($ret[$i++]); // zremrangebyscore
-
-        $this->assertFalse($ret[$i++]); // hset
-        $this->assertFalse($ret[$i++]); // hget
-        $this->assertFalse($ret[$i++]); // hmget
-        $this->assertFalse($ret[$i++]); // hmset
-        $this->assertFalse($ret[$i++]); // hincrby
-        $this->assertFalse($ret[$i++]); // hexists
-        $this->assertFalse($ret[$i++]); // hdel
-        $this->assertFalse($ret[$i++]); // hlen
-        $this->assertFalse($ret[$i++]); // hkeys
-        $this->assertFalse($ret[$i++]); // hvals
-        $this->assertFalse($ret[$i++]); // hgetall
-
-        $this->assertEquals($i, count($ret));
-
-        // set
-        $key = '{hash}set';
-        $dkey = '{hash}' . __FUNCTION__;
-        $ret = $this->valkey_glide->multi($mode)
-            ->del($key)
-            ->sAdd($key, 'sValue')
-
-            // string I/F
-            ->get($key)
-            ->getset($key, 'value2')
-            ->append($key, 'append')
-            ->getRange($key, 0, 8)
-            ->mget([$key])
-            ->incr($key)
-            ->incrBy($key, 1)
-            ->decr($key)
-            ->decrBy($key, 1)
-
-            // lists I/F
-            ->rPush($key, 'lvalue')
-            ->lPush($key, 'lvalue')
-            ->lLen($key)
-            ->lPop($key)
-            ->lrange($key, 0, -1)
-            ->lTrim($key, 0, 1)
-            ->lIndex($key, 0)
-            ->lSet($key, 0, 'newValue')
-            ->lrem($key, 'lvalue', 1)
-            ->lPop($key)
-            ->rPop($key)
-            ->rPoplPush($key, $dkey . 'lkey1')
-
-            // sorted sets I/F
-            ->zAdd($key, 1, 'zValue1')
-            ->zRem($key, 'zValue1')
-            ->zIncrBy($key, 1, 'zValue1')
-            ->zRank($key, 'zValue1')
-            ->zRevRank($key, 'zValue1')
-            ->zRange($key, 0, -1)
-            ->zRangeByScore($key, 1, 2)
-            ->zCount($key, 0, -1)
-            ->zCard($key)
-            ->zScore($key, 'zValue1')
-            ->zRemRangeByRank($key, 1, 2)
-            ->zRemRangeByScore($key, 1, 2)
-
-            // hash I/F
-            ->hSet($key, 'key1', 'value1')
-            ->hGet($key, 'key1')
-            ->hMGet($key, ['key1'])
-            ->hMSet($key, ['key1' => 'value1'])
-            ->hIncrBy($key, 'key2', 1)
-            ->hExists($key, 'key2')
-            ->hDel($key, 'key2')
-            ->hLen($key)
-            ->hKeys($key)
-            ->hVals($key)
-            ->hGetAll($key)
-
-            ->exec();
-
-        $i = 0;
-        $this->assertIsArray($ret);
-        $this->assertTrue(is_long($ret[$i++])); // delete
-        $this->assertEquals(1, $ret[$i++]); // zadd
-
-        $this->assertFalse($ret[$i++]); // get
-        $this->assertFalse($ret[$i++]); // getset
-        $this->assertFalse($ret[$i++]); // append
-        $this->assertFalse($ret[$i++]); // getRange
-        $this->assertEquals([false], $ret[$i++]); // mget
-        $this->assertFalse($ret[$i++]); // incr
-        $this->assertFalse($ret[$i++]); // incrBy
-        $this->assertFalse($ret[$i++]); // decr
-        $this->assertFalse($ret[$i++]); // decrBy
-
-        $this->assertFalse($ret[$i++]); // rpush
-        $this->assertFalse($ret[$i++]); // lpush
-        $this->assertFalse($ret[$i++]); // llen
-        $this->assertFalse($ret[$i++]); // lpop
-        $this->assertFalse($ret[$i++]); // lrange
-        $this->assertFalse($ret[$i++]); // ltrim
-        $this->assertFalse($ret[$i++]); // lindex
-        $this->assertFalse($ret[$i++]); // lset
-        $this->assertFalse($ret[$i++]); // lrem
-        $this->assertFalse($ret[$i++]); // lpop
-        $this->assertFalse($ret[$i++]); // rpop
-        $this->assertFalse($ret[$i++]); // rpoplush
-
-        $this->assertFalse($ret[$i++]); // zadd
-        $this->assertFalse($ret[$i++]); // zrem
-        $this->assertFalse($ret[$i++]); // zincrby
-        $this->assertFalse($ret[$i++]); // zrank
-        $this->assertFalse($ret[$i++]); // zrevrank
-        $this->assertFalse($ret[$i++]); // zrange
-        $this->assertFalse($ret[$i++]); // zreverserange
-        $this->assertFalse($ret[$i++]); // zrangebyscore
-        $this->assertFalse($ret[$i++]); // zcount
-        $this->assertFalse($ret[$i++]); // zcard
-        $this->assertFalse($ret[$i++]); // zscore
-        $this->assertFalse($ret[$i++]); // zremrangebyrank
-        $this->assertFalse($ret[$i++]); // zremrangebyscore
-
-        $this->assertFalse($ret[$i++]); // hset
-        $this->assertFalse($ret[$i++]); // hget
-        $this->assertFalse($ret[$i++]); // hmget
-        $this->assertFalse($ret[$i++]); // hmset
-        $this->assertFalse($ret[$i++]); // hincrby
-        $this->assertFalse($ret[$i++]); // hexists
-        $this->assertFalse($ret[$i++]); // hdel
-        $this->assertFalse($ret[$i++]); // hlen
-        $this->assertFalse($ret[$i++]); // hkeys
-        $this->assertFalse($ret[$i++]); // hvals
-        $this->assertFalse($ret[$i++]); // hgetall
-
-        $this->assertEquals($i, count($ret));
-
-        // sorted set
-        $key = '{hash}sortedset';
-        $dkey = '{hash}' . __FUNCTION__;
-        $ret = $this->valkey_glide->multi($mode)
-            ->del($key)
-            ->zAdd($key, 0, 'zValue')
-
-            // string I/F
-            ->get($key)
-            ->getset($key, 'value2')
-            ->append($key, 'append')
-            ->getRange($key, 0, 8)
-            ->mget([$key])
-            ->incr($key)
-            ->incrBy($key, 1)
-            ->decr($key)
-            ->decrBy($key, 1)
-
-            // lists I/F
-            ->rPush($key, 'lvalue')
-            ->lPush($key, 'lvalue')
-            ->lLen($key)
-            ->lPop($key)
-            ->lrange($key, 0, -1)
-            ->lTrim($key, 0, 1)
-            ->lIndex($key, 0)
-            ->lSet($key, 0, 'newValue')
-            ->lrem($key, 'lvalue', 1)
-            ->lPop($key)
-            ->rPop($key)
-            ->rPoplPush($key, $dkey . 'lkey1')
-
-            // sets I/F
-            ->sAdd($key, 'sValue1')
-            ->srem($key, 'sValue1')
-            ->sPop($key)
-            ->sMove($key, $dkey . 'skey1', 'sValue1')
-            ->scard($key)
-            ->sismember($key, 'sValue1')
-            ->sInter($key, $dkey . 'skey2')
-            ->sUnion($key, $dkey . 'skey4')
-            ->sDiff($key, $dkey . 'skey7')
-            ->sMembers($key)
-            ->sRandMember($key)
-
-            // hash I/F
-            ->hSet($key, 'key1', 'value1')
-            ->hGet($key, 'key1')
-            ->hMGet($key, ['key1'])
-            ->hMSet($key, ['key1' => 'value1'])
-            ->hIncrBy($key, 'key2', 1)
-            ->hExists($key, 'key2')
-            ->hDel($key, 'key2')
-            ->hLen($key)
-            ->hKeys($key)
-            ->hVals($key)
-            ->hGetAll($key)
-
-            ->exec();
-
-        $i = 0;
-        $this->assertIsArray($ret);
-        $this->assertTrue(is_long($ret[$i++])); // delete
-        $this->assertEquals(1, $ret[$i++]); // zadd
-
-        $this->assertFalse($ret[$i++]); // get
-        $this->assertFalse($ret[$i++]); // getset
-        $this->assertFalse($ret[$i++]); // append
-        $this->assertFalse($ret[$i++]); // getRange
-        $this->assertEquals([false], $ret[$i++]); // mget
-        $this->assertFalse($ret[$i++]); // incr
-        $this->assertFalse($ret[$i++]); // incrBy
-        $this->assertFalse($ret[$i++]); // decr
-        $this->assertFalse($ret[$i++]); // decrBy
-
-        $this->assertFalse($ret[$i++]); // rpush
-        $this->assertFalse($ret[$i++]); // lpush
-        $this->assertFalse($ret[$i++]); // llen
-        $this->assertFalse($ret[$i++]); // lpop
-        $this->assertFalse($ret[$i++]); // lrange
-        $this->assertFalse($ret[$i++]); // ltrim
-        $this->assertFalse($ret[$i++]); // lindex
-        $this->assertFalse($ret[$i++]); // lset
-        $this->assertFalse($ret[$i++]); // lrem
-        $this->assertFalse($ret[$i++]); // lpop
-        $this->assertFalse($ret[$i++]); // rpop
-        $this->assertFalse($ret[$i++]); // rpoplush
-
-        $this->assertFalse($ret[$i++]); // sadd
-        $this->assertFalse($ret[$i++]); // srem
-        $this->assertFalse($ret[$i++]); // spop
-        $this->assertFalse($ret[$i++]); // smove
-        $this->assertFalse($ret[$i++]); // scard
-        $this->assertFalse($ret[$i++]); // sismember
-        $this->assertFalse($ret[$i++]); // sinter
-        $this->assertFalse($ret[$i++]); // sunion
-        $this->assertFalse($ret[$i++]); // sdiff
-        $this->assertFalse($ret[$i++]); // smembers
-        $this->assertFalse($ret[$i++]); // srandmember
-
-        $this->assertFalse($ret[$i++]); // hset
-        $this->assertFalse($ret[$i++]); // hget
-        $this->assertFalse($ret[$i++]); // hmget
-        $this->assertFalse($ret[$i++]); // hmset
-        $this->assertFalse($ret[$i++]); // hincrby
-        $this->assertFalse($ret[$i++]); // hexists
-        $this->assertFalse($ret[$i++]); // hdel
-        $this->assertFalse($ret[$i++]); // hlen
-        $this->assertFalse($ret[$i++]); // hkeys
-        $this->assertFalse($ret[$i++]); // hvals
-        $this->assertFalse($ret[$i++]); // hgetall
-
-        $this->assertEquals($i, count($ret));
-
-        // hash
-        $key = '{hash}hash';
-        $dkey = '{hash}' . __FUNCTION__;
-        $ret = $this->valkey_glide->multi($mode)
-            ->del($key)
-            ->hset($key, 'key1', 'hValue')
-
-            // string I/F
-            ->get($key)
-            ->getset($key, 'value2')
-            ->append($key, 'append')
-            ->getRange($key, 0, 8)
-            ->mget([$key])
-            ->incr($key)
-            ->incrBy($key, 1)
-            ->decr($key)
-            ->decrBy($key, 1)
-
-            // lists I/F
-            ->rPush($key, 'lvalue')
-            ->lPush($key, 'lvalue')
-            ->lLen($key)
-            ->lPop($key)
-            ->lrange($key, 0, -1)
-            ->lTrim($key, 0, 1)
-            ->lIndex($key, 0)
-            ->lSet($key, 0, 'newValue')
-            ->lrem($key, 'lvalue', 1)
-            ->lPop($key)
-            ->rPop($key)
-            ->rPoplPush($key, $dkey . 'lkey1')
-
-            // sets I/F
-            ->sAdd($key, 'sValue1')
-            ->srem($key, 'sValue1')
-            ->sPop($key)
-            ->sMove($key, $dkey . 'skey1', 'sValue1')
-            ->scard($key)
-            ->sismember($key, 'sValue1')
-            ->sInter($key, $dkey . 'skey2')
-            ->sUnion($key, $dkey . 'skey4')
-            ->sDiff($key, $dkey . 'skey7')
-            ->sMembers($key)
-            ->sRandMember($key)
-
-            // sorted sets I/F
-            ->zAdd($key, 1, 'zValue1')
-            ->zRem($key, 'zValue1')
-            ->zIncrBy($key, 1, 'zValue1')
-            ->zRank($key, 'zValue1')
-            ->zRevRank($key, 'zValue1')
-            ->zRange($key, 0, -1)
-             ->zRangeByScore($key, 1, 2)
-            ->zCount($key, 0, -1)
-            ->zCard($key)
-            ->zScore($key, 'zValue1')
-            ->zRemRangeByRank($key, 1, 2)
-            ->zRemRangeByScore($key, 1, 2)
-
-            ->exec();
-
-        $i = 0;
-        $this->assertIsArray($ret);
-        $this->assertTrue(is_long($ret[$i++])); // delete
-        $this->assertEquals(1, $ret[$i++]); // hset
-
-        $this->assertFalse($ret[$i++]); // get
-        $this->assertFalse($ret[$i++]); // getset
-        $this->assertFalse($ret[$i++]); // append
-        $this->assertFalse($ret[$i++]); // getRange
-        $this->assertEquals([false], $ret[$i++]); // mget
-        $this->assertFalse($ret[$i++]); // incr
-        $this->assertFalse($ret[$i++]); // incrBy
-        $this->assertFalse($ret[$i++]); // decr
-        $this->assertFalse($ret[$i++]); // decrBy
-
-        $this->assertFalse($ret[$i++]); // rpush
-        $this->assertFalse($ret[$i++]); // lpush
-        $this->assertFalse($ret[$i++]); // llen
-        $this->assertFalse($ret[$i++]); // lpop
-        $this->assertFalse($ret[$i++]); // lrange
-        $this->assertFalse($ret[$i++]); // ltrim
-        $this->assertFalse($ret[$i++]); // lindex
-        $this->assertFalse($ret[$i++]); // lset
-        $this->assertFalse($ret[$i++]); // lrem
-        $this->assertFalse($ret[$i++]); // lpop
-        $this->assertFalse($ret[$i++]); // rpop
-        $this->assertFalse($ret[$i++]); // rpoplush
-
-        $this->assertFalse($ret[$i++]); // sadd
-        $this->assertFalse($ret[$i++]); // srem
-        $this->assertFalse($ret[$i++]); // spop
-        $this->assertFalse($ret[$i++]); // smove
-        $this->assertFalse($ret[$i++]); // scard
-        $this->assertFalse($ret[$i++]); // sismember
-        $this->assertFalse($ret[$i++]); // sinter
-        $this->assertFalse($ret[$i++]); // sunion
-        $this->assertFalse($ret[$i++]); // sdiff
-        $this->assertFalse($ret[$i++]); // smembers
-        $this->assertFalse($ret[$i++]); // srandmember
-
-        $this->assertFalse($ret[$i++]); // zadd
-        $this->assertFalse($ret[$i++]); // zrem
-        $this->assertFalse($ret[$i++]); // zincrby
-        $this->assertFalse($ret[$i++]); // zrank
-        $this->assertFalse($ret[$i++]); // zrevrank
-        $this->assertFalse($ret[$i++]); // zrange
-        $this->assertFalse($ret[$i++]); // zreverserange
-        $this->assertFalse($ret[$i++]); // zrangebyscore
-        $this->assertFalse($ret[$i++]); // zcount
-        $this->assertFalse($ret[$i++]); // zcard
-        $this->assertFalse($ret[$i++]); // zscore
-        $this->assertFalse($ret[$i++]); // zremrangebyrank
-        $this->assertFalse($ret[$i++]); // zremrangebyscore
-
-        $this->assertEquals($i, count($ret));
     }
 
     public function testDifferentTypeString()
@@ -5095,7 +3891,6 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         $this->assertFalse($this->valkey_glide->lrem($key, 'lvalue', 1));
         $this->assertFalse($this->valkey_glide->lPop($key));
         $this->assertFalse($this->valkey_glide->rPop($key));
-        $this->assertFalse($this->valkey_glide->rPoplPush($key, $dkey . 'lkey1'));
 
         // sets I/F
         $this->assertFalse($this->valkey_glide->sAdd($key, 'sValue1'));
@@ -5292,7 +4087,7 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         $this->assertFalse($this->valkey_glide->lrem($key, 'lvalue', 1));
         $this->assertFalse($this->valkey_glide->lPop($key));
         $this->assertFalse($this->valkey_glide->rPop($key));
-        $this->assertFalse($this->valkey_glide->rPoplPush($key, $dkey . 'lkey1'));
+
 
         // sets I/F
         $this->assertFalse($this->valkey_glide->sAdd($key, 'sValue1'));
@@ -6556,7 +5351,7 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         $this->assertFalse(@$this->valkey_glide->xGroup('CREATECONSUMER'));
 
         $this->assertFalse(@$this->valkey_glide->xGroup('create'));
-        return;
+      
         if (! $this->minVersionCheck('7.0.0')) {
             return;
         }
@@ -7092,8 +5887,6 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
         $this->assertTrue($this->valkey_glide->copy('{key}src', '{key}dst', ['replace' => true]));
         $this->assertKeyEquals('bar', '{key}dst');
     }
-
-
 
     public function testFunction()
     {

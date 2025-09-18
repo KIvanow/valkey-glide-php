@@ -344,31 +344,33 @@ int flatten_withscores_array(zval* return_value) {
     return 1;
 }
 
+
 /* ====================================================================
  * COMMON EXECUTION FRAMEWORK IMPLEMENTATION
  * ==================================================================== */
 
 /**
- * Generic Z-command execution framework
+ * Generic Z-command execution framework with integrated batch support
  */
-int execute_z_generic_command(const void*          glide_client,
+int execute_z_generic_command(valkey_glide_object* valkey_glide,
                               enum RequestType     cmd_type,
                               z_command_args_t*    args,
                               void*                result_ptr,
-                              z_result_processor_t process_result) {
-    /* Check if client is valid */
-    if (!glide_client) {
+                              z_result_processor_t process_result,
+                              zval*                return_value) {
+    /* Check if valkey_glide object is valid */
+    if (!valkey_glide) {
         return 0;
     }
 
+    /* Prepare arguments ONCE - single switch statement eliminates duplication */
     uintptr_t*     arg_values        = NULL;
     unsigned long* arg_lens          = NULL;
     char**         allocated_strings = NULL;
     int            allocated_count   = 0;
     int            arg_count         = 0;
-    int            success           = 0;
 
-    /* Determine argument preparation method based on command type */
+    /* Single argument preparation logic for both batch and normal modes */
     switch (cmd_type) {
         case ZCard:
             arg_count = prepare_z_key_args(args, &arg_values, &arg_lens);
@@ -436,7 +438,7 @@ int execute_z_generic_command(const void*          glide_client,
             /* Add increment parameter */
             char increment_str[64];
             int  increment_str_len =
-                snprintf(increment_str, sizeof(increment_str), "%.17g", args->increment);
+                snprintf(increment_str, sizeof(increment_str), "%.6g", args->increment);
             char* increment_str_copy = estrndup(increment_str, increment_str_len);
             if (!increment_str_copy) {
                 efree(arg_values);
@@ -586,11 +588,20 @@ int execute_z_generic_command(const void*          glide_client,
                 args, &arg_values, &arg_lens, &allocated_strings, &allocated_count);
             break;
 
+        case BZPopMax:
+        case BZPopMin:
+            allocated_strings = (char**) emalloc(2 * sizeof(char*)); /* Enough for BZPOP commands */
+            if (!allocated_strings) {
+                return 0;
+            }
+            arg_count = prepare_z_bzpop_args(
+                args, &arg_values, &arg_lens, &allocated_strings, &allocated_count);
+            break;
+
         default:
             /* Unsupported command type */
             return 0;
     }
-
     /* Check if argument preparation was successful */
     if (arg_count <= 0) {
         if (arg_values)
@@ -602,9 +613,26 @@ int execute_z_generic_command(const void*          glide_client,
         return 0;
     }
 
+    if (valkey_glide->is_in_batch_mode) {
+        int result = buffer_command_for_batch(valkey_glide,
+                                              cmd_type,
+                                              arg_values,
+                                              arg_lens,
+                                              arg_count,
+
+                                              result_ptr,
+                                              process_result);
+
+        if (arg_values)
+            efree(arg_values);
+        if (arg_lens)
+            efree(arg_lens);
+
+        return result;
+    }
     /* Execute the command */
     CommandResult* result =
-        execute_command(glide_client, cmd_type, arg_count, arg_values, arg_lens);
+        execute_command(valkey_glide->glide_client, cmd_type, arg_count, arg_values, arg_lens);
 
     /* Free allocated strings */
     int i;
@@ -632,7 +660,7 @@ int execute_z_generic_command(const void*          glide_client,
     }
 
     /* Process the result */
-    success = process_result(result, result_ptr);
+    int success = process_result(result->response, result_ptr, return_value);
 
     /* Free the result */
     free_command_result(result);
@@ -1311,7 +1339,8 @@ int prepare_z_union_args(z_command_args_t* args,
     store_options_t union_opts = {0};
     parse_store_options(args->weights, args->options, &union_opts);
 
-    /* Calculate total arguments (numkeys + keys + WEIGHTS + AGGREGATE + WITHSCORES if present) */
+    /* Calculate total arguments (numkeys + keys + WEIGHTS + AGGREGATE + WITHSCORES if
+     * present) */
     unsigned long arg_count     = 1 + args->member_count; /* +1 for numkeys */
     int           weights_count = 0;
 
@@ -1819,6 +1848,104 @@ int prepare_z_randmember_args(z_command_args_t* args,
     return arg_count;
 }
 
+/**
+ * Prepare BZPOP command arguments (timeout + keys)
+ * Handles both array format (single zval containing array) and variadic format (array of zvals)
+ */
+int prepare_z_bzpop_args(z_command_args_t* args,
+                         uintptr_t**       args_out,
+                         unsigned long**   args_len_out,
+                         char***           allocated_strings,
+                         int*              allocated_count) {
+    if (!args || !args->members || args->member_count <= 0 || !args_out || !args_len_out ||
+        !allocated_strings || !allocated_count) {
+        return 0;
+    }
+
+    *allocated_count = 0;
+
+    /* Detect format: array format vs variadic format */
+    int        actual_key_count = 0;
+    zval*      keys_array       = NULL;
+    int        is_array_format  = 0;
+    HashTable* keys_ht          = NULL;
+
+    /* Check if we have array format (single zval containing an array) */
+    if (Z_TYPE_P(&args->members[0]) == IS_ARRAY) {
+        /* Array format: args->members[0] contains the array of keys */
+        is_array_format  = 1;
+        keys_array       = &args->members[0];
+        keys_ht          = Z_ARRVAL_P(keys_array);
+        actual_key_count = zend_hash_num_elements(keys_ht);
+    } else {
+        /* Variadic format: args->members is array of individual key zvals */
+        is_array_format  = 0;
+        actual_key_count = args->member_count;
+    }
+
+    if (actual_key_count <= 0) {
+        return 0;
+    }
+
+    /* Calculate argument count: keys + timeout */
+    unsigned long arg_count = actual_key_count + 1; /* keys + timeout */
+
+    /* Allocate final args arrays */
+    *args_out     = (uintptr_t*) emalloc(arg_count * sizeof(uintptr_t));
+    *args_len_out = (unsigned long*) emalloc(arg_count * sizeof(unsigned long));
+
+    if (!(*args_out) || !(*args_len_out)) {
+        if (*args_out)
+            efree(*args_out);
+        if (*args_len_out)
+            efree(*args_len_out);
+        return 0;
+    }
+
+    /* Add keys as arguments based on format */
+    if (is_array_format) {
+        /* Array format: iterate through the array */
+        int   idx = 0;
+        zval* key_entry;
+        ZEND_HASH_FOREACH_VAL(keys_ht, key_entry) {
+            if (Z_TYPE_P(key_entry) != IS_STRING) {
+                /* Convert to string if needed */
+                convert_to_string(key_entry);
+            }
+            (*args_out)[idx]     = (uintptr_t) Z_STRVAL_P(key_entry);
+            (*args_len_out)[idx] = Z_STRLEN_P(key_entry);
+            idx++;
+        }
+        ZEND_HASH_FOREACH_END();
+    } else {
+        /* Variadic format: iterate through individual zvals */
+        int i;
+        for (i = 0; i < actual_key_count; i++) {
+            zval* key = &args->members[i];
+            if (Z_TYPE_P(key) != IS_STRING) {
+                /* Convert to string if needed */
+                convert_to_string(key);
+            }
+            (*args_out)[i]     = (uintptr_t) Z_STRVAL_P(key);
+            (*args_len_out)[i] = Z_STRLEN_P(key);
+        }
+    }
+
+    /* Add timeout as the last argument (reuse increment field for timeout) */
+    size_t timeout_len;
+    char*  timeout_str = double_to_string(args->increment, &timeout_len);
+    if (!timeout_str) {
+        efree(*args_out);
+        efree(*args_len_out);
+        return 0;
+    }
+    (*args_out)[actual_key_count]              = (uintptr_t) timeout_str;
+    (*args_len_out)[actual_key_count]          = timeout_len;
+    (*allocated_strings)[(*allocated_count)++] = timeout_str;
+
+    return arg_count;
+}
+
 /* ====================================================================
  * RESULT PROCESSING FUNCTIONS
  * ===================================================================== */
@@ -1826,44 +1953,41 @@ int prepare_z_randmember_args(z_command_args_t* args,
 /**
  * Process integer result (for commands returning count)
  */
-int process_z_int_result(CommandResult* result, void* output) {
-    long* output_value = (long*) output;
-
-    if (!result || !result->response || !output_value) {
+int process_z_int_result(CommandResponse* response, void* output, zval* return_value) {
+    if (!response) {
         return 0;
     }
 
-    if (result->response->response_type == Int) {
-        *output_value = result->response->int_value;
+    if (response->response_type == Int) {
+        ZVAL_LONG(return_value, response->int_value);
         return 1;
     }
-
+    ZVAL_FALSE(return_value);
     return 0;
 }
 
 /**
  * Process double result (for commands returning scores)
  */
-int process_z_double_result(CommandResult* result, void* output) {
-    double* output_value = (double*) output;
-
-    if (!result || !result->response || !output_value) {
+int process_z_double_result(CommandResponse* response, void* output, zval* return_value) {
+    if (!response) {
         return 0;
     }
 
-    if (result->response->response_type == String) {
+    if (response->response_type == String) {
         /* Parse string as double */
-        char* endptr;
-        *output_value = strtod(result->response->string_value, &endptr);
-        if (*endptr == '\0' ||
-            endptr == result->response->string_value + result->response->string_value_len) {
+        char*  endptr;
+        double output_value = strtod(response->string_value, &endptr);
+        if (*endptr == '\0' || endptr == response->string_value + response->string_value_len) {
+            ZVAL_DOUBLE(return_value, output_value);
             return 1;
         }
         return 0;
     }
 
-    if (result->response->response_type == Float) {
-        *output_value = result->response->float_value;
+    if (response->response_type == Float) {
+        double output_value = response->float_value;
+        ZVAL_DOUBLE(return_value, output_value);
         return 1;
     }
 
@@ -1871,119 +1995,73 @@ int process_z_double_result(CommandResult* result, void* output) {
 }
 
 /**
- * Process null/exists result (for exists-type commands)
- */
-int process_z_exists_result(CommandResult* result, void* output) {
-    if (!result || !result->response) {
-        return -1;
-    }
-
-    if (result->response->response_type == Null) {
-        return 0; /* Member doesn't exist */
-    }
-
-    return 1; /* Member exists */
-}
-
-/**
  * Process rank result with optional score
  */
-int process_z_rank_result(CommandResult* result, void* output) {
-    struct {
-        long*   rank;
-        double* score;
-        int     withscore;
-    }* rank_data = output;
-
-    if (!result || !result->response || !rank_data || !rank_data->rank) {
+int process_z_rank_result(CommandResponse* response, void* output, zval* return_value) {
+    if (!response) {
         return -1;
     }
 
-    if (result->response->response_type == Null) {
-        return 0; /* Member doesn't exist */
+    if (response->response_type == Null) {
+        ZVAL_NULL(return_value); /* Member doesn't exist */
+        return 0;                /* Member doesn't exist */
     }
 
-    if (result->response->response_type == Int) {
-        *rank_data->rank = result->response->int_value;
+    if (response->response_type == Int) {
+        ZVAL_LONG(return_value, response->int_value);
         return 1;
     }
 
-    if (result->response->response_type == Array && rank_data->withscore && rank_data->score) {
-        /* Array with rank and score [rank, score] */
-        if (result->response->array_value_len >= 2) {
-            CommandResponse* rank_resp  = &result->response->array_value[0];
-            CommandResponse* score_resp = &result->response->array_value[1];
-
-            if (rank_resp->response_type == Int &&
-                (score_resp->response_type == String || score_resp->response_type == Float)) {
-                *rank_data->rank = rank_resp->int_value;
-
-                if (score_resp->response_type == String) {
-                    char* endptr;
-                    *rank_data->score = strtod(score_resp->string_value, &endptr);
-                } else {
-                    *rank_data->score = score_resp->float_value;
-                }
-
-                return 1;
-            }
-        }
-    }
 
     return -1;
 }
 
-int process_z_array_zrand_result(CommandResult* result, void* output) {
+int process_z_array_zrand_result(CommandResponse* response, void* output, zval* return_value) {
     struct {
-        zval* return_value;
-        int   withscores;
+        int withscores;
     }* array_data = output;
-    if (!result || !result->response || !array_data || !array_data->return_value) {
+    if (!response || !array_data || !return_value) {
         return 0;
     }
 
     /* Process the result */
 
-    int success = command_response_to_zval(
-        result->response, array_data->return_value, COMMAND_RESPONSE_NOT_ASSOSIATIVE, false);
+    int success =
+        command_response_to_zval(response, return_value, COMMAND_RESPONSE_NOT_ASSOSIATIVE, false);
 
-    if (Z_TYPE_P(array_data->return_value) == IS_STRING) {
+    if (Z_TYPE_P(return_value) == IS_STRING) {
         // Save the string temporarily
         zval tmp;
 
-        ZVAL_COPY(&tmp, array_data->return_value);
+        ZVAL_COPY(&tmp, return_value);
 
         // Convert return_value to an array
-        array_init(array_data->return_value);
+        array_init(return_value);
 
         // Add the original string as the first element (index 0)
-        add_next_index_zval(array_data->return_value, &tmp);
+        add_next_index_zval(return_value, &tmp);
     }
 
-    if (array_data->withscores && success && Z_TYPE_P(array_data->return_value) == IS_ARRAY) {
+    if (array_data->withscores && success && Z_TYPE_P(return_value) == IS_ARRAY) {
         /* Use common helper to flatten withscores array */
-        flatten_withscores_array(array_data->return_value);
+        flatten_withscores_array(return_value);
     }
-
+    efree(output);
     return success;
 }
 
 /**
  * Process array result (for commands returning arrays)
  */
-int process_z_array_result(CommandResult* result, void* output) {
-    struct {
-        zval* return_value;
-        int   withscores;
-    }* array_data = output;
-
-    if (!result || !result->response || !array_data || !array_data->return_value) {
+int process_z_array_result(CommandResponse* response, void* output, zval* return_value) {
+    if (!response || !return_value) {
         return 0;
     }
-
+    /* Initialize return array */
+    array_init(return_value);
     /* Process the result */
     int success = command_response_to_zval(
-        result->response, array_data->return_value, COMMAND_RESPONSE_ASSOSIATIVE_ARRAY_MAP, true);
+        response, return_value, COMMAND_RESPONSE_ASSOSIATIVE_ARRAY_MAP, true);
 
     return success;
 }
@@ -1991,52 +2069,49 @@ int process_z_array_result(CommandResult* result, void* output) {
 /**
  * Process integer result and set as ZVAL_LONG (for commands like ZINTERCARD)
  */
-int process_z_long_to_zval_result(CommandResult* result, void* output) {
-    zval* return_value = (zval*) output;
-
-    if (!result || !result->response || !return_value) {
+int process_z_long_to_zval_result(CommandResponse* response, void* output, zval* return_value) {
+    if (!response || !return_value) {
         return 0;
     }
-
-    if (result->response->response_type == Int) {
-        ZVAL_LONG(return_value, result->response->int_value);
-        return 1;
-    }
-
-    return 0;
+    return command_response_to_zval(
+        response, return_value, COMMAND_RESPONSE_NOT_ASSOSIATIVE, false);
 }
 
 /**
- * Process ZADD result with dual return types (long for count, double for INCR)
+ * Process BZPOP result (for BZPOPMAX/BZPOPMIN commands)
  */
-int process_z_zadd_result(CommandResult* result, void* output) {
-    struct {
-        long*   output_value;
-        double* output_value_double;
-        int     is_incr;
-    }* zadd_data = output;
-
-    if (!result || !result->response || !zadd_data) {
+int process_z_bzpop_result(CommandResponse* response, void* output, zval* return_value) {
+    if (!response || !return_value) {
         return 0;
     }
+    if (response->response_type == Null) {
+        /* Timeout occurred, return false */
+        ZVAL_FALSE(return_value);
+        return 1;
+    } else if (response->response_type == Array) {
+        /* For BZPOP commands, need to manually ensure the score is a string */
+        if (response->array_value_len == 3 && response->array_value[2].response_type != String) {
+            /* Convert the response array to PHP array */
+            int success = command_response_to_zval(
+                response, return_value, COMMAND_RESPONSE_NOT_ASSOSIATIVE, false);
 
-    if (zadd_data->is_incr) {
-        if (result->response->response_type == Float) {
-            *zadd_data->output_value_double = result->response->float_value;
-            return 2;
-        } else if (result->response->response_type == String) {
-            char* str_end;
-            if (result->response->string_value && result->response->string_value_len > 0) {
-                *zadd_data->output_value_double = strtod(result->response->string_value, &str_end);
-                return 2;
+            /* Get the score element (should be index 2) */
+            zval*      score = NULL;
+            zval*      arr   = return_value;
+            HashTable* ht    = Z_ARRVAL_P(arr);
+
+            /* Convert numeric score to string */
+            if (ht && zend_hash_index_exists(ht, 2)) {
+                score = zend_hash_index_find(ht, 2);
+                if (score && (Z_TYPE_P(score) == IS_LONG || Z_TYPE_P(score) == IS_DOUBLE)) {
+                    convert_to_string(score);
+                }
             }
-        } else if (result->response->response_type == Null) {
-            return 0;
-        }
-    } else {
-        if (result->response->response_type == Int) {
-            *zadd_data->output_value = result->response->int_value;
-            return 1;
+            return success;
+        } else {
+            /* Regular array conversion */
+            return command_response_to_zval(
+                response, return_value, COMMAND_RESPONSE_NOT_ASSOSIATIVE, false);
         }
     }
 

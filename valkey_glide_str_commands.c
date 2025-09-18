@@ -21,6 +21,7 @@
 #include "include/glide_bindings.h"
 #include "valkey_glide_commands_common.h"
 #include "valkey_glide_core_common.h"
+#include "valkey_glide_z_common.h"
 
 /* Import the string conversion functions from command_response.c */
 extern char* long_to_string(long value, size_t* len);
@@ -29,9 +30,8 @@ extern char* double_to_string(double value, size_t* len);
 /* Execute a TYPE command using the Valkey Glide client - MIGRATED TO CORE FRAMEWORK */
 int execute_type_command(zval* object, int argc, zval* return_value, zend_class_entry* ce) {
     valkey_glide_object* valkey_glide;
-    char*                key        = NULL;
-    size_t               key_len    = 0;
-    long                 type_value = 0;
+    char*                key     = NULL;
+    size_t               key_len = 0;
 
     /* Parse parameters */
     if (zend_parse_method_parameters(argc, object, "Os", &object, ce, &key, &key_len) == FAILURE) {
@@ -49,8 +49,15 @@ int execute_type_command(zval* object, int argc, zval* return_value, zend_class_
         args.key                 = key;
         args.key_len             = key_len;
 
-        if (execute_core_command(&args, &type_value, process_core_type_result)) {
-            ZVAL_LONG(return_value, type_value);
+
+        if (execute_core_command(
+                valkey_glide, &args, NULL, process_core_type_result, return_value)) {
+            if (valkey_glide->is_in_batch_mode) {
+                /* In batch mode, return $this for method chaining */
+                ZVAL_COPY(return_value, object);
+                return 1;
+            }
+
             return 1;
         }
     }
@@ -63,7 +70,7 @@ int execute_append_command(zval* object, int argc, zval* return_value, zend_clas
     valkey_glide_object* valkey_glide;
     char *               key = NULL, *value = NULL;
     size_t               key_len = 0, value_len = 0;
-    long                 result_value = 0;
+
 
     /* Parse parameters */
     if (zend_parse_method_parameters(
@@ -88,8 +95,14 @@ int execute_append_command(zval* object, int argc, zval* return_value, zend_clas
         args.args[0].data.string_arg.len   = value_len;
         args.arg_count                     = 1;
 
-        if (execute_core_command(&args, &result_value, process_core_int_result)) {
-            ZVAL_LONG(return_value, result_value);
+        if (execute_core_command(
+                valkey_glide, &args, NULL, process_core_int_result, return_value)) {
+            if (valkey_glide->is_in_batch_mode) {
+                /* In batch mode, return $this for method chaining */
+                ZVAL_COPY(return_value, object);
+                return 1;
+            }
+
             return 1;
         }
     }
@@ -128,23 +141,30 @@ int execute_getrange_command(zval* object, int argc, zval* return_value, zend_cl
         args.args[1].data.long_arg.value = end;
         args.arg_count                   = 2;
 
-        /* Use string result processor */
-        struct {
-            char**  result;
-            size_t* result_len;
-        } output = {&result, &result_len};
+        /* Allocate string result processor on heap for batch support */
 
-        int ret = execute_core_command(&args, &output, process_core_string_result);
+
+        int ret = execute_core_command(
+            valkey_glide, &args, NULL, process_core_string_result, return_value);
 
         if (ret > 0) {
+            if (valkey_glide->is_in_batch_mode) {
+                /* In batch mode, return $this for method chaining */
+                /* Note: output will be freed later in process_core_string_result */
+                ZVAL_COPY(return_value, object);
+                return 1;
+            }
+
             /* Command succeeded with data */
-            RETVAL_STRINGL(result, result_len);
-            efree(result);
+
+
             return 1;
         } else if (ret == 0) {
             /* Key didn't exist, return empty string */
-            ZVAL_EMPTY_STRING(return_value);
+
             return 1;
+        } else {
+            /* Error */
         }
     }
 
@@ -159,7 +179,9 @@ static void build_sort_args(const char*     key,
                             zend_bool*      desc_out,
                             uintptr_t**     args_ptr,
                             unsigned long** args_len_ptr,
-                            unsigned long*  arg_count_ptr) {
+                            unsigned long*  arg_count_ptr,
+                            char**          offset_str,
+                            char**          count_str) {
     zend_bool alpha = 0, desc = 0, explicit_asc = 0;
 
     /* Parse sort options from the pattern array first */
@@ -274,65 +296,25 @@ static void build_sort_args(const char*     key,
                         arg_idx++;
 
                         /* Add offset */
-                        char*  offset_str;
+
                         size_t offset_len;
                         long   offset_val = zval_get_long(z_offset);
-                        offset_str        = long_to_string(offset_val, &offset_len);
-                        if (offset_str) {
-                            args[arg_idx]     = (uintptr_t) offset_str;
+                        *offset_str       = long_to_string(offset_val, &offset_len);
+                        if (*offset_str) {
+                            args[arg_idx]     = (uintptr_t) *offset_str;
                             args_len[arg_idx] = offset_len;
                             arg_idx++;
 
                             /* Add count */
-                            char*  count_str;
                             size_t count_len;
                             long   count_val = zval_get_long(z_count);
-                            count_str        = long_to_string(count_val, &count_len);
-                            if (count_str) {
-                                args[arg_idx]     = (uintptr_t) count_str;
+                            *count_str       = long_to_string(count_val, &count_len);
+                            if (*count_str) {
+                                args[arg_idx]     = (uintptr_t) *count_str;
                                 args_len[arg_idx] = count_len;
                                 arg_idx++;
-                            } else {
-                                efree(offset_str);
                             }
                         }
-                    }
-                }
-            }
-        }
-        /* Fallback to old format for backward compatibility */
-        else {
-            zval *z_offset, *z_count;
-            if ((z_offset = zend_hash_str_find(ht, "limit_offset", sizeof("limit_offset") - 1)) !=
-                    NULL &&
-                (z_count = zend_hash_str_find(ht, "limit_count", sizeof("limit_count") - 1)) !=
-                    NULL) {
-                /* Add LIMIT keyword */
-                args[arg_idx]     = (uintptr_t) "LIMIT";
-                args_len[arg_idx] = 5;
-                arg_idx++;
-
-                /* Add offset */
-                char*  offset_str;
-                size_t offset_len;
-                long   offset_val = zval_get_long(z_offset);
-                offset_str        = long_to_string(offset_val, &offset_len);
-                if (offset_str) {
-                    args[arg_idx]     = (uintptr_t) offset_str;
-                    args_len[arg_idx] = offset_len;
-                    arg_idx++;
-
-                    /* Add count */
-                    char*  count_str;
-                    size_t count_len;
-                    long   count_val = zval_get_long(z_count);
-                    count_str        = long_to_string(count_val, &count_len);
-                    if (count_str) {
-                        args[arg_idx]     = (uintptr_t) count_str;
-                        args_len[arg_idx] = count_len;
-                        arg_idx++;
-                    } else {
-                        efree(offset_str);
                     }
                 }
             }
@@ -411,30 +393,13 @@ static void build_sort_args(const char*     key,
     *arg_count_ptr = arg_idx;
 }
 
-/* Free memory allocated for SORT command arguments */
-static void free_sort_args(uintptr_t* args, unsigned long* args_len, unsigned long arg_count) {
-    if (args && args_len) {
-        /* Free any dynamically allocated argument strings (offset and count) */
-        for (unsigned long i = 0; i < arg_count; i++) {
-            /* Skip key, BY, GET, LIMIT, STORE, ALPHA, DESC, ASC and any string that was
-               directly extracted from a zval (not allocated) */
-            if (strcmp((const char*) args[i], "BY") != 0 &&
-                strcmp((const char*) args[i], "GET") != 0 &&
-                strcmp((const char*) args[i], "LIMIT") != 0 &&
-                strcmp((const char*) args[i], "STORE") != 0 &&
-                strcmp((const char*) args[i], "ALPHA") != 0 &&
-                strcmp((const char*) args[i], "DESC") != 0 &&
-                strcmp((const char*) args[i], "ASC") != 0 && i > 0 && /* Skip key */
-                ((i > 1 && strcmp((const char*) args[i - 1], "LIMIT") ==
-                               0) || /* Only free offset and count */
-                 (i > 2 && strcmp((const char*) args[i - 2], "LIMIT") == 0))) {
-                efree((void*) args[i]);
-            }
-        }
+int process_sort_result(CommandResponse* response, void* output, zval* return_value) {
+    int ret_val = 0;
 
-        efree(args);
-        efree(args_len);
-    }
+    ret_val =
+        command_response_to_zval(response, return_value, COMMAND_RESPONSE_NOT_ASSOSIATIVE, false);
+
+    return ret_val;
 }
 
 /* Execute a SORT command using the Valkey Glide client */
@@ -457,10 +422,22 @@ int execute_sort_command(zval* object, int argc, zval* return_value, zend_class_
     /* If we have a Glide client, use it */
     if (valkey_glide->glide_client) {
         /* Build command arguments */
-        uintptr_t*     args      = NULL;
-        unsigned long* args_len  = NULL;
-        unsigned long  arg_count = 0;
-        build_sort_args(key, key_len, z_opts, &alpha, &desc, &args, &args_len, &arg_count);
+        uintptr_t*     args       = NULL;
+        unsigned long* args_len   = NULL;
+        unsigned long  arg_count  = 0;
+        char*          offset_str = NULL;
+        char*          count_str  = NULL;
+
+        build_sort_args(key,
+                        key_len,
+                        z_opts,
+                        &alpha,
+                        &desc,
+                        &args,
+                        &args_len,
+                        &arg_count,
+                        &offset_str,
+                        &count_str);
 
         if (!args || !args_len || arg_count == 0) {
             if (args)
@@ -469,55 +446,46 @@ int execute_sort_command(zval* object, int argc, zval* return_value, zend_class_
                 efree(args_len);
             return 0;
         }
-
-        /* Execute the command */
-        CommandResult* cmd_result = execute_command(valkey_glide->glide_client,
-                                                    Sort,      /* command type */
-                                                    arg_count, /* number of arguments */
-                                                    args,      /* arguments */
-                                                    args_len   /* argument lengths */
-        );
+        CommandResult* cmd_result = NULL;
+        /* Check for batch mode */
+        if (valkey_glide->is_in_batch_mode) {
+            /* Create batch-compatible processor wrapper */
+            int res = buffer_command_for_batch(
+                valkey_glide, Sort, args, args_len, arg_count, NULL, process_sort_result);
+        } else {
+            /* Execute the command */
+            cmd_result = execute_command(valkey_glide->glide_client,
+                                         Sort,      /* command type */
+                                         arg_count, /* number of arguments */
+                                         args,      /* arguments */
+                                         args_len   /* argument lengths */
+            );
+        }
 
         /* Free the argument arrays */
-        free_sort_args(args, args_len, arg_count);
+        efree(args);
+        efree(args_len);
+        efree(offset_str);
+        efree(count_str);
 
-        /* Check if we have a valid result */
-        if (!cmd_result || !cmd_result->response) {
-            if (cmd_result)
-                free_command_result(cmd_result);
-            return 0;
-        }
 
         /* Process the result */
         int ret_val = 0;
-
-        /* Check for STORE option */
-        if (z_opts && Z_TYPE_P(z_opts) == IS_ARRAY) {
-            zval* z_store = zend_hash_str_find(Z_ARRVAL_P(z_opts), "store", sizeof("store") - 1);
-            if (z_store && Z_TYPE_P(z_store) == IS_STRING) {
-                /* With STORE option, we get the number of stored elements */
-                long result_value = 0;
-                if (handle_int_response(cmd_result, &result_value)) {
-                    ZVAL_LONG(return_value, result_value);
+        if (valkey_glide->is_in_batch_mode) {
+            /* In batch mode, return $this for method chaining */
+            ZVAL_COPY(return_value, object);
+            ret_val = 1;
+        } else {
+            /* Check if we have a valid result */
+            if (!cmd_result || !cmd_result->response) {
+                if (cmd_result)
                     free_command_result(cmd_result);
-                    return 1;
-                }
-                free_command_result(cmd_result);
                 return 0;
             }
-        }
 
-        /* Without STORE option, we get an array of sorted values */
-        if (cmd_result->response->response_type == Array) {
-            array_init(return_value);
-            ret_val = command_response_to_zval(
-                cmd_result->response, return_value, COMMAND_RESPONSE_NOT_ASSOSIATIVE, false);
-        } else if (cmd_result->response->response_type == Null) {
-            /* Empty array */
-            array_init(return_value);
-            ret_val = 1;
+            /* Check for STORE option */
+            ret_val = process_sort_result(cmd_result->response, NULL, return_value);
         }
-
         free_command_result(cmd_result);
         return ret_val;
     }
@@ -533,6 +501,8 @@ int execute_sort_ro_command(zval* object, int argc, zval* return_value, zend_cla
     size_t               key_len = 0;
     zval*                z_opts  = NULL;
     zend_bool            alpha = 0, desc = 0;
+    char*                offset_str = NULL;
+    char*                count_str  = NULL;
 
     /* Parse parameters */
     if (zend_parse_method_parameters(argc, object, "Os|a", &object, ce, &key, &key_len, &z_opts) ==
@@ -549,7 +519,17 @@ int execute_sort_ro_command(zval* object, int argc, zval* return_value, zend_cla
         uintptr_t*     args      = NULL;
         unsigned long* args_len  = NULL;
         unsigned long  arg_count = 0;
-        build_sort_args(key, key_len, z_opts, &alpha, &desc, &args, &args_len, &arg_count);
+
+        build_sort_args(key,
+                        key_len,
+                        z_opts,
+                        &alpha,
+                        &desc,
+                        &args,
+                        &args_len,
+                        &arg_count,
+                        &offset_str,
+                        &count_str);
 
         if (!args || !args_len || arg_count == 0) {
             if (args)
@@ -558,38 +538,44 @@ int execute_sort_ro_command(zval* object, int argc, zval* return_value, zend_cla
                 efree(args_len);
             return 0;
         }
-
-        /* Execute the command */
-        CommandResult* cmd_result = execute_command(valkey_glide->glide_client,
-                                                    SortReadOnly, /* command type */
-                                                    arg_count,    /* number of arguments */
-                                                    args,         /* arguments */
-                                                    args_len      /* argument lengths */
-        );
-
+        CommandResult* cmd_result = NULL;
+        /* Check for batch mode */
+        if (valkey_glide->is_in_batch_mode) {
+            /* Create batch-compatible processor wrapper */
+            int res = buffer_command_for_batch(
+                valkey_glide, Sort, args, args_len, arg_count, NULL, process_sort_result);
+        } else {
+            /* Execute the command */
+            cmd_result = execute_command(valkey_glide->glide_client,
+                                         SortReadOnly, /* command type */
+                                         arg_count,    /* number of arguments */
+                                         args,         /* arguments */
+                                         args_len      /* argument lengths */
+            );
+        }
         /* Free the argument arrays */
-        free_sort_args(args, args_len, arg_count);
+        efree(args);
+        efree(args_len);
+        efree(offset_str);
+        efree(count_str);
 
-        /* Check if we have a valid result */
-        if (!cmd_result || !cmd_result->response) {
-            if (cmd_result)
-                free_command_result(cmd_result);
-            return 0;
-        }
 
-        /* Process the result */
         int ret_val = 0;
-
-        /* SORT_RO doesn't support STORE option, so we always get an array of values */
-        if (cmd_result->response->response_type == Array) {
-            array_init(return_value);
-            ret_val = command_response_to_zval(
-                cmd_result->response, return_value, COMMAND_RESPONSE_NOT_ASSOSIATIVE, false);
-        } else if (cmd_result->response->response_type == Null) {
-            /* Empty array */
-            array_init(return_value);
+        if (valkey_glide->is_in_batch_mode) {
+            /* In batch mode, return $this for method chaining */
+            ZVAL_COPY(return_value, object);
             ret_val = 1;
+        } else {
+            /* Check if we have a valid result */
+            if (!cmd_result || !cmd_result->response) {
+                if (cmd_result)
+                    free_command_result(cmd_result);
+                return 0;
+            }
+
+            ret_val = process_sort_result(cmd_result->response, NULL, return_value);
         }
+        /* Process the result */
 
         free_command_result(cmd_result);
         return ret_val;

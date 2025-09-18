@@ -91,9 +91,7 @@ class ValkeyGlideClusterTest extends ValkeyGlideTest
 
 
 
-    protected static array $seeds = [];
-
-    private static array $seed_messages = [];
+    protected static array $seeds = [];    
     private static string $seed_source = '';
 
     /* Tests we'll skip all together in the context of ValkeyGlideCluster.  The
@@ -163,70 +161,16 @@ class ValkeyGlideClusterTest extends ValkeyGlideTest
         $this->markTestSkipped();
     }
 
-    private function loadSeedsFromHostPort($host, $port)
-    {
-        try {
-            $rc = new ValkeyGlideCluster(null, ["$host:$port"], 1, 1, true, $this->getAuth());
-            self::$seed_source = "Host: $host, Port: $port";
-            return array_map(function ($master) {
-                return sprintf('%s:%s', $master[0], $master[1]);
-            }, $rc->_masters());
-        } catch (Exception $ex) {
-            /* fallthrough */
-        }
 
-        self::$seed_messages[] = "--host=$host, --port=$port";
+  
 
-        return false;
-    }
+    
 
-    private function loadSeedsFromEnv()
-    {
-        $seeds = getenv('REDIS_CLUSTER_NODES');
-        if (! $seeds) {
-            self::$seed_messages[] = "environment variable REDIS_CLUSTER_NODES ($seeds)";
-            return false;
-        }
-
-        self::$seed_source = 'Environment variable REDIS_CLUSTER_NODES';
-        return array_filter(explode(' ', $seeds));
-    }
-
-    private function loadSeedsFromNodeMap()
-    {
-        $nodemap_file = dirname($_SERVER['PHP_SELF']) . '/nodes/nodemap';
-        if (! file_exists($nodemap_file)) {
-            self::$seed_messages[] = "nodemap file '$nodemap_file'";
-            return false;
-        }
-
-        self::$seed_source = "Nodemap file '$nodemap_file'";
-        return array_filter(explode("\n", file_get_contents($nodemap_file)));
-    }
-/*
-    private function loadSeeds($host, $port) {
-        if (($seeds = $this->loadSeedsFromNodeMap()))
-            return $seeds;
-        if (($seeds = $this->loadSeedsFromEnv()))
-            return $seeds;
-        if (($seeds = $this->loadSeedsFromHostPort($host, $port)))
-            return $seeds;
-
-        TestSuite::errorMessage("Error:  Unable to load seeds for ValkeyGlideCluster tests");
-        foreach (self::$seed_messages as $msg) {
-            TestSuite::errorMessage("   Tried: %s", $msg);
-        }
-
-        exit(1);
-    }*/
 
     /* Load our seeds on construction */
     public function __construct($host, $port, $auth, $tls)
     {
-
-        parent::__construct($host, $port, $auth, $tls);
-
-        //self::$seeds = $this->loadSeeds($host, $port);TODO
+        parent::__construct($host, $port, $auth, $tls);        
     }
 
     /* Override setUp to get info from a specific node */
@@ -356,7 +300,6 @@ class ValkeyGlideClusterTest extends ValkeyGlideTest
         $allNodesInfo = $this->valkey_glide->info("allNodes", "cpu");
         // Should return an array
         $this->assertIsArray($allNodesInfo, 12);
-
         // Should have 6 entries (one per node)
         $this->assertEquals(12, count($allNodesInfo), "Should have 6 node entries");
 
@@ -418,11 +361,10 @@ class ValkeyGlideClusterTest extends ValkeyGlideTest
 
         /* Iterate over our masters, scanning each one */
         $key_count = $this->valkey_glide->dbsize("allPrimaries");
-
         /* Scan the keys here using ClusterScanCursor - create new cursor each iteration */
         $cursor = new ClusterScanCursor(); // Create fresh cursor each time
         while (true) {
-            $keys = $this->valkey_glide->scan($cursor);
+            $keys = $this->valkey_glide->scan($cursor);            
             if ($keys) {
                 $scan_count += count($keys);
             }
@@ -563,7 +505,7 @@ class ValkeyGlideClusterTest extends ValkeyGlideTest
     /* INFO COMMANDSTATS requires a key or ip:port for node direction */
     public function testInfoCommandStats()
     {
-        $info = $this->valkey_glide->info(uniqid(), "COMMANDSTATS");
+        $info = $this->valkey_glide->info("3", "COMMANDSTATS");
 
         $this->assertIsArray($info);
         if (is_array($info)) {
