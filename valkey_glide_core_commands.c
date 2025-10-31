@@ -26,6 +26,7 @@
 
 #include "command_response.h"
 #include "include/glide_bindings.h"
+#include "logger.h"
 #include "valkey_glide_commands_common.h"
 #include "valkey_glide_core_common.h"
 #include "valkey_glide_list_common.h"
@@ -234,7 +235,7 @@ static const ConnectionResponse* create_base_glide_client(
 
     /* Check if there was an error */
     if (conn_resp->connection_error_message) {
-        printf("Error creating client: %s\n", conn_resp->connection_error_message);
+        VALKEY_LOG_ERROR("client_creation", conn_resp->connection_error_message);
     }
 
     return conn_resp;
@@ -1974,7 +1975,7 @@ static int process_lcs_result(CommandResponse* response, void* output, zval* ret
 
 
         default:
-            printf("default response\n");
+            VALKEY_LOG_WARN("command_response", "Unexpected default response type");
             /* Unsupported response type */
             ZVAL_FALSE(return_value);
             ret_val = 0;

@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "logger.h"
 #include "valkey_glide_z_common.h"
 
 /* ====================================================================
@@ -36,9 +37,24 @@ int execute_core_command(valkey_glide_object* valkey_glide,
                          z_result_processor_t processor,
                          zval*                return_value) {
     if (!valkey_glide || !args || !args->glide_client || !processor) {
+        if (!valkey_glide) {
+            VALKEY_LOG_ERROR("parameter_validation", "ValkeyGlide object is NULL");
+        } else if (!args) {
+            VALKEY_LOG_ERROR("parameter_validation", "Command arguments are NULL");
+        } else if (!args->glide_client) {
+            VALKEY_LOG_ERROR("parameter_validation", "Client connection handle is NULL");
+        } else if (!processor) {
+            VALKEY_LOG_ERROR("parameter_validation", "Result processor is NULL");
+        }
         efree(result_ptr);
         return 0;
     }
+
+    /* Log command execution entry */
+    VALKEY_LOG_DEBUG_FMT("command_execution",
+                         "Entering command execution - Command type: %d, Batch mode: %s",
+                         args->cmd_type,
+                         valkey_glide->is_in_batch_mode ? "yes" : "no");
 
     uintptr_t*     cmd_args          = NULL;
     unsigned long* cmd_args_len      = NULL;
@@ -51,18 +67,22 @@ int execute_core_command(valkey_glide_object* valkey_glide,
     debug_print_core_args(args);
 
     /* Prepare command arguments based on command type */
+    VALKEY_LOG_DEBUG("command_execution", "Preparing command arguments");
     arg_count =
         prepare_core_args(args, &cmd_args, &cmd_args_len, &allocated_strings, &allocated_count);
 
     if (arg_count < 0) {
+        VALKEY_LOG_ERROR("execute_core_command", "Failed to prepare command arguments");
         efree(result_ptr);
         return 0;
     }
 
+    VALKEY_LOG_DEBUG_FMT("command_execution", "Argument count: %d", arg_count);
+
     /* Check for batch mode */
     if (valkey_glide->is_in_batch_mode) {
         /* Create batch-compatible processor wrapper */
-
+        VALKEY_LOG_DEBUG("command_execution", "Entering batch mode execution");
 
         res = buffer_command_for_batch(valkey_glide,
                                        args->cmd_type,
@@ -75,14 +95,21 @@ int execute_core_command(valkey_glide_object* valkey_glide,
 
         free_core_args(cmd_args, cmd_args_len, allocated_strings, allocated_count);
         if (res == 0) {
+            VALKEY_LOG_WARN_FMT("batch_execution",
+                                "Failed to buffer command for batch - command type: %d",
+                                args->cmd_type);
             efree(result_ptr);
+        } else {
+            VALKEY_LOG_DEBUG("batch_execution", "Command successfully buffered for batch");
         }
         return res;
     }
 
     /* Execute the command - use routing if cluster mode and route provided */
+    VALKEY_LOG_DEBUG("command_execution", "Executing command via FFI");
     if (args->has_route && args->route_param) {
         /* Cluster mode with routing */
+        VALKEY_LOG_DEBUG("command_execution", "Using cluster routing");
         result = execute_command_with_route(args->glide_client,
                                             args->cmd_type,
                                             arg_count,
@@ -98,11 +125,13 @@ int execute_core_command(valkey_glide_object* valkey_glide,
     debug_print_command_result(result);
 
     /* Process result using appropriate handler */
+    VALKEY_LOG_DEBUG("command_execution", "Processing command result");
     if (result) {
         if (result->response) {
             /* Non-routed commands use standard processor */
             res = processor(result->response, result_ptr, return_value);
         } else {
+            VALKEY_LOG_ERROR("execute_core_command", "Command execution returned no response");
             efree(result_ptr);
             ZVAL_FALSE(return_value);
         }
@@ -110,6 +139,7 @@ int execute_core_command(valkey_glide_object* valkey_glide,
         /* Free the result - handle_string_response doesn't free it */
         free_command_result(result);
     } else {
+        VALKEY_LOG_ERROR("execute_core_command", "Command execution failed - NULL result");
         efree(result_ptr);
         ZVAL_FALSE(return_value);
     }
@@ -1128,9 +1158,20 @@ int process_core_type_result(CommandResponse* response, void* output, zval* retu
  * Allocate command argument arrays
  */
 int allocate_core_arg_arrays(int count, uintptr_t** args_out, unsigned long** args_len_out) {
-    *args_out     = (uintptr_t*) emalloc(count * sizeof(uintptr_t));
-    *args_len_out = (unsigned long*) emalloc(count * sizeof(unsigned long));
+    *args_out = (uintptr_t*) emalloc(count * sizeof(uintptr_t));
+    if (!*args_out) {
+        VALKEY_LOG_ERROR("memory_allocation",
+                         "Failed to allocate memory for command arguments array");
+        return 0;
+    }
 
+    *args_len_out = (unsigned long*) emalloc(count * sizeof(unsigned long));
+    if (!*args_len_out) {
+        VALKEY_LOG_ERROR("memory_allocation",
+                         "Failed to allocate memory for command arguments length array");
+        efree(*args_out);
+        return 0;
+    }
 
     return 1;
 }
@@ -1140,7 +1181,11 @@ int allocate_core_arg_arrays(int count, uintptr_t** args_out, unsigned long** ar
  * Create string tracker for memory management
  */
 char** create_string_tracker(int max_strings) {
-    return (char**) ecalloc(max_strings, sizeof(char*));
+    char** tracker = (char**) ecalloc(max_strings, sizeof(char*));
+    if (!tracker) {
+        VALKEY_LOG_ERROR("memory_allocation", "Failed to allocate memory for string tracker");
+    }
+    return tracker;
 }
 
 /**
@@ -1487,17 +1532,25 @@ int process_core_string_result(CommandResponse* response, void* output, zval* re
     if (response->response_type == String) {
         if (response->string_value_len == 0) {
             result = emalloc(1);
-            if (result) {
-                (result)[0] = '\0';
+            if (!result) {
+                VALKEY_LOG_ERROR("memory_allocation",
+                                 "Failed to allocate memory for empty string result");
+                ZVAL_NULL(return_value);
+                return 0;
             }
+            result[0]  = '\0';
             result_len = 0;
         } else {
             result = emalloc(response->string_value_len + 1);
-            if (result) {
-                memcpy(result, response->string_value, response->string_value_len);
-                (result)[response->string_value_len] = '\0';
+            if (!result) {
+                VALKEY_LOG_ERROR("memory_allocation",
+                                 "Failed to allocate memory for string result");
+                ZVAL_NULL(return_value);
+                return 0;
             }
-            result_len = response->string_value_len;
+            memcpy(result, response->string_value, response->string_value_len);
+            result[response->string_value_len] = '\0';
+            result_len                         = response->string_value_len;
         }
         if (result) {
             ZVAL_STRINGL(return_value, result, result_len);
@@ -1634,84 +1687,97 @@ int execute_multi_key_command(valkey_glide_object* valkey_glide,
 #ifdef DEBUG_VALKEY_GLIDE_PHP
 void debug_print_core_args(core_command_args_t* args) {
     if (!args) {
-        printf("DEBUG: core_args is NULL\n");
+        VALKEY_LOG_ERROR("debug_core_args", "core_args is NULL");
         return;
     }
 
-    printf("DEBUG: Core Command Args:\n");
-    printf("  cmd_type: %d\n", args->cmd_type);
-    printf("  key: %.*s (len: %zu)\n",
-           (int) args->key_len,
-           args->key ? args->key : "NULL",
-           args->key_len);
-    printf("  arg_count: %d\n", args->arg_count);
+    VALKEY_LOG_DEBUG("debug_core_args", "Core Command Args:");
+    VALKEY_LOG_DEBUG_FMT("debug_core_args", "  cmd_type: %d", args->cmd_type);
+    VALKEY_LOG_DEBUG_FMT("debug_core_args",
+                         "  key: %.*s (len: %zu)",
+                         (int) args->key_len,
+                         args->key ? args->key : "NULL",
+                         args->key_len);
+    VALKEY_LOG_DEBUG_FMT("debug_core_args", "  arg_count: %d", args->arg_count);
 
     for (int i = 0; i < args->arg_count; i++) {
-        printf("  arg[%d]: type=%d\n", i, args->args[i].type);
+        VALKEY_LOG_DEBUG_FMT("debug_core_args", "  arg[%d]: type=%d", i, args->args[i].type);
         switch (args->args[i].type) {
             case CORE_ARG_TYPE_STRING:
-                printf("    string: %.*s (len: %zu)\n",
-                       (int) args->args[i].data.string_arg.len,
-                       args->args[i].data.string_arg.value,
-                       args->args[i].data.string_arg.len);
+                VALKEY_LOG_DEBUG_FMT("debug_core_args",
+                                     "    string: %.*s (len: %zu)",
+                                     (int) args->args[i].data.string_arg.len,
+                                     args->args[i].data.string_arg.value,
+                                     args->args[i].data.string_arg.len);
                 break;
             case CORE_ARG_TYPE_LONG:
-                printf("    long: %ld\n", args->args[i].data.long_arg.value);
+                VALKEY_LOG_DEBUG_FMT(
+                    "debug_core_args", "    long: %ld", args->args[i].data.long_arg.value);
                 break;
             case CORE_ARG_TYPE_DOUBLE:
-                printf("    double: %f\n", args->args[i].data.double_arg.value);
+                VALKEY_LOG_DEBUG_FMT(
+                    "debug_core_args", "    double: %f", args->args[i].data.double_arg.value);
                 break;
             default:
-                printf("    (other type)\n");
+                VALKEY_LOG_DEBUG("debug_core_args", "    (other type)");
                 break;
         }
     }
 
-    printf("  options: has_expire=%d, nx=%d, xx=%d\n",
-           args->options.has_expire,
-           args->options.nx,
-           args->options.xx);
+    VALKEY_LOG_DEBUG_FMT("debug_core_args",
+                         "  options: has_expire=%d, nx=%d, xx=%d",
+                         args->options.has_expire,
+                         args->options.nx,
+                         args->options.xx);
 }
 
 void debug_print_command_result(CommandResult* result) {
     if (!result) {
-        printf("DEBUG: CommandResult is NULL\n");
+        VALKEY_LOG_ERROR("debug_command_result", "CommandResult is NULL");
         return;
     }
 
-    printf("DEBUG: CommandResult:\n");
-    printf("  command_error: %s\n", result->command_error ? "YES" : "NO");
+    VALKEY_LOG_DEBUG("debug_command_result", "CommandResult:");
+    VALKEY_LOG_DEBUG_FMT(
+        "debug_command_result", "  command_error: %s", result->command_error ? "YES" : "NO");
     if (result->command_error) {
-        printf("  error_message: %s\n",
-               result->command_error->command_error_message
-                   ? result->command_error->command_error_message
-                   : "NULL");
+        VALKEY_LOG_ERROR_FMT("debug_command_result",
+                             "  error_message: %s",
+                             result->command_error->command_error_message
+                                 ? result->command_error->command_error_message
+                                 : "NULL");
     }
 
     if (result->response) {
-        printf("  response_type: %d\n", result->response->response_type);
+        VALKEY_LOG_DEBUG_FMT(
+            "debug_command_result", "  response_type: %d", result->response->response_type);
         switch (result->response->response_type) {
             case Int:
-                printf("  int_value: %ld\n", result->response->int_value);
+                VALKEY_LOG_DEBUG_FMT(
+                    "debug_command_result", "  int_value: %ld", result->response->int_value);
                 break;
             case String:
-                printf("  string_value: %.*s (len: %ld)\n",
-                       (int) result->response->string_value_len,
-                       result->response->string_value,
-                       result->response->string_value_len);
+                VALKEY_LOG_DEBUG_FMT("debug_command_result",
+                                     "  string_value: %.*s (len: %ld)",
+                                     (int) result->response->string_value_len,
+                                     result->response->string_value,
+                                     result->response->string_value_len);
                 break;
             case Bool:
-                printf("  bool_value: %s\n", result->response->bool_value ? "true" : "false");
+                VALKEY_LOG_DEBUG_FMT("debug_command_result",
+                                     "  bool_value: %s",
+                                     result->response->bool_value ? "true" : "false");
                 break;
             case Float:
-                printf("  float_value: %f\n", result->response->float_value);
+                VALKEY_LOG_DEBUG_FMT(
+                    "debug_command_result", "  float_value: %f", result->response->float_value);
                 break;
             default:
-                printf("  (other response type)\n");
+                VALKEY_LOG_DEBUG("debug_command_result", "  (other response type)");
                 break;
         }
     } else {
-        printf("  response: NULL\n");
+        VALKEY_LOG_DEBUG("debug_command_result", "  response: NULL");
     }
 }
 #endif

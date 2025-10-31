@@ -16,6 +16,7 @@
 
 #include "valkey_glide_x_common.h"
 
+#include "logger.h"
 #include "valkey_glide_z_common.h"
 
 /* ====================================================================
@@ -419,9 +420,10 @@ int execute_x_generic_command(valkey_glide_object* valkey_glide,
             arg_count = prepare_x_info_args(
                 args, &cmd_args, &args_len, &allocated_strings, &allocated_count);
             break;
-        default:
-            printf("Unknown command type: %d\n", cmd_type);
+        default: {
+            VALKEY_LOG_ERROR_FMT("command_processing", "Unknown command type: %d", cmd_type);
             return 0;
+        }
     }
 
     /* Check if argument preparation was successful */
