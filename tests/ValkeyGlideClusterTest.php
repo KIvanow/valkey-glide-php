@@ -1062,4 +1062,79 @@ class ValkeyGlideClusterTest extends ValkeyGlideTest
         $this->valkey_glide->select(0);
         $this->valkey_glide->del($srcKey);
     }
+
+    public function testRefreshTopologyFromInitialNodesDefault()
+    {
+        // Test that refresh_topology_from_initial_nodes defaults to false when not specified
+        $client = new ValkeyGlideCluster(
+            addresses: [['host' => 'localhost', 'port' => 7001]],
+            use_tls: false,
+            credentials: null,
+            read_from: ValkeyGlide::READ_FROM_PREFER_REPLICA,
+            request_timeout: null,
+            reconnect_strategy: null,
+            client_name: null,
+            periodic_checks: ValkeyGlideCluster::PERIODIC_CHECK_ENABLED_DEFAULT_CONFIGS,
+            client_az: null,
+            advanced_config: ['connection_timeout' => 5000]
+        );
+        
+        // Perform basic operation to verify client works
+        $result = $client->ping(['type' => 'primarySlotKey', 'key' => 'test']);
+        $this->assertTrue($result);
+        
+        $client->close();
+    }
+
+    public function testRefreshTopologyFromInitialNodesEnabled()
+    {
+        // Test that refresh_topology_from_initial_nodes can be set to true
+        $client = new ValkeyGlideCluster(
+            addresses: [['host' => 'localhost', 'port' => 7001]],
+            use_tls: false,
+            credentials: null,
+            read_from: ValkeyGlide::READ_FROM_PREFER_REPLICA,
+            request_timeout: null,
+            reconnect_strategy: null,
+            client_name: null,
+            periodic_checks: ValkeyGlideCluster::PERIODIC_CHECK_ENABLED_DEFAULT_CONFIGS,
+            client_az: null,
+            advanced_config: [
+                'connection_timeout' => 5000,
+                'refresh_topology_from_initial_nodes' => true
+            ]
+        );
+        
+        // Perform basic operation to verify client works
+        $result = $client->ping(['type' => 'primarySlotKey', 'key' => 'test']);
+        $this->assertTrue($result);
+        
+        $client->close();
+    }
+
+    public function testRefreshTopologyFromInitialNodesDisabled()
+    {
+        // Test that refresh_topology_from_initial_nodes can be explicitly set to false
+        $client = new ValkeyGlideCluster(
+            addresses: [['host' => 'localhost', 'port' => 7001]],
+            use_tls: false,
+            credentials: null,
+            read_from: ValkeyGlide::READ_FROM_PREFER_REPLICA,
+            request_timeout: null,
+            reconnect_strategy: null,
+            client_name: null,
+            periodic_checks: ValkeyGlideCluster::PERIODIC_CHECK_ENABLED_DEFAULT_CONFIGS,
+            client_az: null,
+            advanced_config: [
+                'connection_timeout' => 5000,
+                'refresh_topology_from_initial_nodes' => false
+            ]
+        );
+        
+        // Perform basic operation to verify client works
+        $result = $client->ping(['type' => 'primarySlotKey', 'key' => 'test']);
+        $this->assertTrue($result);
+        
+        $client->close();
+    }
 }

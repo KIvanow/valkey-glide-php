@@ -138,7 +138,8 @@ typedef struct {
     valkey_glide_base_client_configuration_t base;
     valkey_glide_periodic_checks_status_t    periodic_checks_status;
     valkey_glide_periodic_checks_manual_interval_t*
-        periodic_checks_manual; /* NULL if using status */
+         periodic_checks_manual;              /* NULL if using status */
+    bool refresh_topology_from_initial_nodes; /* false if not set */
 } valkey_glide_cluster_client_configuration_t;
 
 /* Configuration parsing functions */
