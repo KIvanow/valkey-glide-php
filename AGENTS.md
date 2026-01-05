@@ -12,6 +12,7 @@ This is the PHP client binding for Valkey GLIDE, providing a sync client impleme
 to the GLIDE Core written in Rust using C FFI headers.
 
 **Key Components:**
+
 - `./` - PHP API stubs (*.php.stub files),
 - `src/` - Mock classes for testing.
 - `tests/` - Test suite (primarily integration tests)
@@ -28,6 +29,7 @@ to the GLIDE Core written in Rust using C FFI headers.
 **Communication:** Direct FFI (sync)
 
 **Supported Platforms:**
+
 - Linux: Ubuntu 20+, Amazon Linux 2/2023 (x86_64, aarch64)
 - macOS: 13.7+ (x86_64), 14.7+ (aarch64)
 - **Note:** Alpine Linux/MUSL not supported
@@ -37,35 +39,40 @@ to the GLIDE Core written in Rust using C FFI headers.
 **Packages:** `valkey-io/valkey-glide-php`
 
 ## Connection function implementation flow
-* Client constructors are implemented with the by implementing `__construct` PHP method for a class using the
+
+- Client constructors are implemented with the by implementing `__construct` PHP method for a class using the
 PHP_METHOD macro. See `valkey_glide.c` and `valkey_glide_cluster.c`
-* The design of the clusters basically marshal PHP function arguments to C structs defined locally, then those get
-written to protobufs messages defined by the FFI layer. Then create_client() is called in the FFI layer with the 
+- The design of the clusters basically marshal PHP function arguments to C structs defined locally, then those get
+written to protobufs messages defined by the FFI layer. Then create_client() is called in the FFI layer with the
 protobuf message.
-* The C structures representing the connection configuration are `valkey_glide_client_configuration_t` and
+- The C structures representing the connection configuration are `valkey_glide_client_configuration_t` and
 `valkey_glide_cluster_client_configuration_t`. Shared fields are in `valkey_glide_base_client_configuration_t`.
-* The method which converts the configuration to protobuf is `create_connection_request()` defined in
+- The method which converts the configuration to protobuf is `create_connection_request()` defined in
 `valkey_glide_core_commands.c`.
 
 ## Command Implementation Flow
-* Define a method in `valkey_glide.stub.php` and/or `valkey_glide_cluster.stub.php` depending on if it should be
+
+- Define a method in `valkey_glide.stub.php` and/or `valkey_glide_cluster.stub.php` depending on if it should be
 available in standalone or cluster.
-* Write a helper function to execute the command through the FFI layer. See `execute_get_command` for an example.
+- Write a helper function to execute the command through the FFI layer. See `execute_get_command` for an example.
 These methods should work generically on a `ValkeyGlide` or `ValkeyGlideCluster`. The `valkey_glide_object` pointer represents either.
-* Define a macro that invokes the PHP_METHOD macro, taking in a class name. Have that macro call the helper above. See `GET_METHOD_IMPL`.
-* Invoke this macro in a .c file. `valkey_z_php_methods.c` for standalone and `valkey_glide_cluster.c` for cluster.
+- Define a macro that invokes the PHP_METHOD macro, taking in a class name. Have that macro call the helper above. See `GET_METHOD_IMPL`.
+- Invoke this macro in a .c file. `valkey_z_php_methods.c` for standalone and `valkey_glide_cluster.c` for cluster.
 
 ## File naming scheme
-* Files are named `valkey_glide_<command_category>_commands.c`, possibly with a numerical suffix.
-* Code to be shared across a command category go in `valkey_glide_<command_category>_common.c`.
+
+- Files are named `valkey_glide_<command_category>_commands.c`, possibly with a numerical suffix.
+- Code to be shared across a command category go in `valkey_glide_<command_category>_common.c`.
 
 ## Test Framework
+
 Tests are written using a proprietary test framework rather than an existing framework
 such as PHPUnit. The base class for test suites is TestSuite and it is in tests/TestSuite.php. This framework doesn't integrate into IDEs such as PhpStorm and doesn't provide a way to run individual test methods or by pattern so switching to a well-known framework may be beneficial.
 
 ## Build and Test Rules (Agents)
 
 ### Standard autoconf build (used internally by PIE and PECL installers)
+
 ```bash
 # Build commands
 phpize
@@ -99,7 +106,7 @@ git rebase -i HEAD~n --signoff
 
 Use conventional commit format:
 
-```
+```text
 <type>(<scope>): <description>
 
 [optional body]
@@ -128,6 +135,7 @@ Use conventional commit format:
 ## Guardrails & Policies
 
 ### Generated Outputs (Never Commit)
+
 See the .gitignore
 
 ## Quality Gates (Agent Checklist)

@@ -1,4 +1,4 @@
-# Welcome to Valkey GLIDE PHP!
+# Welcome to Valkey GLIDE PHP
 
 Valkey General Language Independent Driver for the Enterprise (GLIDE) is the official open-source Valkey client library, proudly part of the Valkey organization. Our mission is to make your experience with Valkey and Redis OSS seamless and enjoyable. Whether you're a seasoned developer or just starting out, Valkey GLIDE is here to support you every step of the way.
 
@@ -8,7 +8,7 @@ Valkey General Language Independent Driver for the Enterprise (GLIDE) is the off
 
 ⚠️ **Note:** This client is currently under active development. Not all features are available yet, but a public preview with a subset of core functionality will be released soon.
 
-# Why Choose Valkey GLIDE?
+## Why Choose Valkey GLIDE?
 
 - **Community and Open Source**: Join our vibrant community and contribute to the project. We are always here to respond, and the client is for the community.
 - **Reliability**: Built with best practices learned from over a decade of operating Redis OSS-compatible services.
@@ -19,9 +19,9 @@ Valkey General Language Independent Driver for the Enterprise (GLIDE) is the off
 - **Backed and Supported by AWS and GCP**: Ensuring robust support and continuous improvement of the project.
 
 ## Key Features
+
 - **[Cluster-Aware MGET/MSET/DEL/FLUSHALL](https://github.com/valkey-io/valkey-glide/wiki/General-Concepts#multi-slot-command-handling:~:text=Multi%2DSlot%20Command%20Execution,JSON.MGET)** – Execute multi-key commands across cluster slots without manual key grouping.
 - **[Cluster Scan](https://github.com/valkey-io/valkey-glide/wiki/General-Concepts#cluster-scan)** – Unified key iteration across shards using a consistent, high-level API for cluster environments.
-
 
 ## Supported Engine Versions
 
@@ -32,7 +32,7 @@ Valkey GLIDE is API-compatible with the following engine versions:
 | Valkey                |   -   |   -   |   -    |   V   |   V   |   V   |
 | Redis                 |   V   |   V   |   V    |   V   |   -   |   -   |
 
-# Getting Started - PHP Wrapper
+## Getting Started - PHP Wrapper
 
 ## System Requirements
 
@@ -40,13 +40,13 @@ The release of Valkey GLIDE was tested on the following platforms:
 
 Linux:
 
--   Ubuntu 20 (x86_64/amd64 and arm64/aarch64)
+- Ubuntu 20 (x86_64/amd64 and arm64/aarch64)
 
 **Note: Currently Alpine Linux / MUSL is NOT supported.**
 
 macOS:
 
--   macOS 14.7 (Apple silicon/aarch_64)
+- macOS 14.7 (Apple silicon/aarch_64)
 
 ## PHP Supported Versions
 
@@ -73,6 +73,7 @@ Before installing Valkey GLIDE PHP extension, ensure you have the following depe
 ### Installing Dependencies
 
 **Ubuntu/Debian:**
+
 ```bash
 sudo apt update -y
 sudo apt install -y php-dev php-cli git gcc make autotools-dev pkg-config openssl libssl-dev unzip php-bcmath
@@ -82,6 +83,7 @@ source "$HOME/.cargo/env"
 ```
 
 **CentOS/RHEL:**
+
 ```bash
 sudo yum update -y
 sudo yum install -y php-devel php-cli git gcc make pkgconfig openssl openssl-devel unzip php-bcmath
@@ -91,6 +93,7 @@ source "$HOME/.cargo/env"
 ```
 
 **macOS:**
+
 ```bash
 brew update
 brew install php git gcc make pkgconfig protobuf openssl
@@ -101,6 +104,7 @@ source "$HOME/.cargo/env"
 ### Installing protobuf compiler
 
 **For macOS:**
+
 ```bash
 brew install protobuf
 brew install protobuf-c
@@ -109,6 +113,7 @@ protoc --version
 ```
 
 **For Linux:**
+
 ```bash
 PB_REL="https://github.com/protocolbuffers/protobuf/releases"
 curl -LO $PB_REL/download/v3.20.3/protoc-3.20.3-linux-x86_64.zip
@@ -119,14 +124,16 @@ protoc --version
 ```
 
 ### Installing from Packagist
+
 You can use pie to install the extension from the Packagist repository.
-See: https://packagist.org/packages/valkey-io/valkey-glide-php
+See: <https://packagist.org/packages/valkey-io/valkey-glide-php>
 
 Before starting this step, make sure you've installed all dependencies above.
 
 Additionally, you will need to install the pie tool.
 
 On Linux, you can download pie with curl. eg:
+
 ```bash
 curl -L https://github.com/php/pie/releases/latest/download/pie.phar -o pie
 chmod +x pie
@@ -135,11 +142,13 @@ export PATH="$PATH:/usr/local/bin"
 ```
 
 On MacOS, install with Homebrew:
+
 ```bash
 brew install pie
 ```
 
 To install the Valkey Glide extension, simply use the pie command:
+
 ```bash
 # VERSION can be set to any release tag or branch at https://github.com/valkey-io/valkey-glide-php.git
 export VERSION=1.0.0
@@ -147,6 +156,7 @@ pie install valkey-io/valkey-glide-php:$VERSION
 ```
 
 ### Installing from PECL
+
 You can install the extension using PECL from GitHub releases:
 
 ```bash
@@ -159,11 +169,13 @@ pecl install valkey_glide-1.0.0.tgz
 ```
 
 After installation, add the extension to your php.ini:
+
 ```ini
 extension=valkey_glide
 ```
 
 Verify the installation:
+
 ```bash
 php -m | grep valkey_glide
 php -r "if (extension_loaded('valkey_glide')) echo 'SUCCESS: Extension loaded!'; else echo 'ERROR: Extension not loaded';"
@@ -172,17 +184,20 @@ php -r "if (extension_loaded('valkey_glide')) echo 'SUCCESS: Extension loaded!';
 ### Building and Installing the Extension from source
 
 1. Clone the repository:
+
     ```bash
     git clone --recurse-submodules https://github.com/valkey-io/valkey-glide-php.git
     cd valkey-glide-php
     ```
 
 2. Initialize submodules (if not cloned with --recurse-submodules):
+
     ```bash
     git submodule update --init --recursive
     ```
 
 3. Build the FFI library (required dependency):
+
     ```bash
     python3 utils/patch_proto_and_rust.py
     cd valkey-glide/ffi
@@ -191,6 +206,7 @@ php -r "if (extension_loaded('valkey_glide')) echo 'SUCCESS: Extension loaded!';
     ```
 
 4. Build the extension:
+
     ```bash
     phpize
     ./configure --enable-valkey-glide
@@ -199,27 +215,32 @@ php -r "if (extension_loaded('valkey_glide')) echo 'SUCCESS: Extension loaded!';
     ```
 
 5. Enable the extension by adding it to your `php.ini` file:
+
     ```ini
     extension=valkey_glide
     ```
-   
+
 6. Generate PHP protobuf classes used for testing purposes:
+
    ```bash
    protoc --proto_path=./valkey-glide/glide-core/src/protobuf --php_out=./tests/ ./valkey-glide/glide-core/src/protobuf/connection_request.proto
    ```
 
 7. Install PHP dependencies with composer:
+
    ```bash
    composer install --no-interaction --prefer-dist --optimize-autoloader
    ```
 
 8. Execute the tests:
-    ```
+
+    ```bash
     make test
     ```
+
 ## Basic Examples
 
-### Standalone Valkey:
+### Standalone Valkey
 
 ```php
 <?php
@@ -255,7 +276,7 @@ try {
 ?>
 ```
 
-### AWS ElastiCache/MemoryDB with IAM Authentication:
+### AWS ElastiCache/MemoryDB with IAM Authentication
 
 ```php
 <?php
@@ -290,7 +311,7 @@ try {
 ?>
 ```
 
-### Cluster Valkey:
+### Cluster Valkey
 
 ```php
 <?php
@@ -337,9 +358,10 @@ try {
 ?>
 ```
 
-### Contributing
+### CI Validation
 
 All contributions are automatically validated through our CI pipeline, ensuring:
+
 - Code style compliance
 - All tests passing across supported PHP versions
 - Memory leak detection and performance benchmarks
@@ -352,7 +374,7 @@ Development instructions for local building & testing the package are in the [DE
 
 GitHub is a platform for collaborative coding. If you're interested in writing code, we encourage you to contribute by submitting pull requests from forked copies of this repository. Additionally, please consider creating GitHub issues for reporting bugs and suggesting new features. Feel free to comment on issues that interest. For more info see [Contributing](./CONTRIBUTING.md).
 
-## Get Involved!
+## Get Involved
 
 We invite you to join our open-source community and contribute to Valkey GLIDE. Whether it's reporting bugs, suggesting new features, or submitting pull requests, your contributions are highly valued. Check out our [Contributing Guidelines](./CONTRIBUTING.md) to get started.
 
@@ -363,4 +385,5 @@ If you have any questions or need assistance, don't hesitate to reach out. Open 
 We encourage you to join our community to support, share feedback, and ask questions. You can approach us for anything on our Valkey Slack: [Join Valkey Slack](https://join.slack.com/t/valkey-oss-developer/shared_invite/zt-2nxs51chx-EB9hu9Qdch3GMfRcztTSkQ).
 
 ## License
-* [Apache License 2.0](./LICENSE)
+
+- [Apache License 2.0](./LICENSE)

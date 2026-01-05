@@ -2,7 +2,7 @@
 
 This document describes how to set up your development environment to build and test the Valkey GLIDE PHP wrapper.
 
-### Development Overview
+## Development Overview
 
 The Valkey GLIDE PHP wrapper is implemented as a PHP extension written in C that interfaces with the Rust-based Glide core library. The PHP extension communicates with the core using:
 
@@ -35,11 +35,11 @@ Software Dependencies
 - clang-format 18.x (for C linting)
 - markdownlint-cli 0.44.x (for markdown linting)
 
-**Valkey installation**
+### Valkey installation
 
 See the [Valkey installation guide](https://valkey.io/topics/installation/) to install the Valkey server and CLI.
 
-**Dependencies installation for Ubuntu**
+### Dependencies installation for Ubuntu
 
 ```bash
 sudo apt update -y
@@ -62,7 +62,7 @@ rustc --version
 
 Continue with **Install protobuf compiler** and **Install `ziglang` and `zigbuild`** below.
 
-**Dependencies installation for CentOS**
+### Dependencies installation for CentOS
 
 ```bash
 sudo yum update -y
@@ -80,7 +80,7 @@ rustc --version
 
 Continue with **Install protobuf compiler** and **Install `ziglang` and `zigbuild`** below.
 
-**Dependencies installation for MacOS**
+### Dependencies installation for MacOS
 
 ```bash
 brew update
@@ -100,7 +100,7 @@ clang-format --version  # Should show version 18.x
 npm install -g markdownlint-cli@0.44.0
 ```
 
-**Install protobuf compiler**
+### Install protobuf compiler
 
 To install protobuf for MacOS, run:
 
@@ -126,7 +126,7 @@ export PATH="$PATH:$HOME/.local/bin"
 protoc --version
 ```
 
-**Install `ziglang` and `zigbuild`**
+### Install `ziglang` and `zigbuild`
 
 ```bash
 pip3 install ziglang
@@ -134,14 +134,16 @@ cargo install --locked cargo-zigbuild
 ```
 
 #### Installing from Packagist
+
 You can use pie to install the extension from the Packagist repository.
-See: https://packagist.org/packages/valkey-io/valkey-glide-php
+See: <https://packagist.org/packages/valkey-io/valkey-glide-php>
 
 Before starting this step, make sure you've installed all dependencies above.
 
 Additionally, you will need to install the pie tool.
 
 On Linux, you can download pie with curl. eg:
+
 ```bash
 curl -L https://github.com/php/pie/releases/latest/download/pie.phar -o pie
 chmod +x pie
@@ -150,11 +152,13 @@ export PATH="$PATH:/usr/local/bin"
 ```
 
 On MacOS, install with Homebrew:
+
 ```bash
 brew install pie
 ```
 
 To install the Valkey Glide extension, simply use the pie command:
+
 ```bash
 # VERSION can be set to any release tag or branch at https://github.com/valkey-io/valkey-glide-php.git
 export VERSION=1.0.0
@@ -162,6 +166,7 @@ pie install valkey-io/valkey-glide-php:$VERSION
 ```
 
 #### Installing from PECL
+
 You can install the extension using PECL from GitHub releases:
 
 ```bash
@@ -174,11 +179,13 @@ pecl install valkey_glide-1.0.0.tgz
 ```
 
 After installation, add the extension to your php.ini:
+
 ```ini
 extension=valkey_glide
 ```
 
 Verify the installation:
+
 ```bash
 php -m | grep valkey_glide
 php -r "if (extension_loaded('valkey_glide')) echo 'SUCCESS: Extension loaded!'; else echo 'ERROR: Extension not loaded';"
