@@ -30,8 +30,17 @@
 #include "zend_API.h"
 #include "zend_interfaces.h"
 
+/* Constants */
+#define HOST_KEY "host"
+#define PORT_KEY "port"
+#define DEFAULT_HOST "localhost"
+#define DEFAULT_PORT 6379
+
 /* Global variables */
 zend_class_entry* mock_constructor_ce;
+
+/* Forward declarations */
+static bool _populate_addresses(zval** addresses);
 
 void register_mock_constructor_class(void) {
     /* Use the generated registration function */
@@ -83,9 +92,9 @@ PHP_METHOD(ClientConstructorMock, simulate_standalone_constructor) {
     valkey_glide_php_common_constructor_params_t common_params;
     valkey_glide_init_common_constructor_params(&common_params);
 
-    ZEND_PARSE_PARAMETERS_START(1, 11)
-    Z_PARAM_ARRAY(common_params.addresses)
+    ZEND_PARSE_PARAMETERS_START(0, 12)
     Z_PARAM_OPTIONAL
+    Z_PARAM_ARRAY_OR_NULL(common_params.addresses)
     Z_PARAM_BOOL(common_params.use_tls)
     Z_PARAM_ARRAY_OR_NULL(common_params.credentials)
     Z_PARAM_LONG(common_params.read_from)
@@ -96,16 +105,9 @@ PHP_METHOD(ClientConstructorMock, simulate_standalone_constructor) {
     Z_PARAM_STRING_OR_NULL(common_params.client_az, common_params.client_az_len)
     Z_PARAM_ARRAY_OR_NULL(common_params.advanced_config)
     Z_PARAM_BOOL_OR_NULL(common_params.lazy_connect, common_params.lazy_connect_is_null)
+    Z_PARAM_RESOURCE_EX(
+        common_params.context, 1, 0) /* Use Z_PARAM_RESOURCE_OR_NULL with PHP 8.5+ */
     ZEND_PARSE_PARAMETERS_END_EX(RETURN_THROWS());
-
-    /* Validate addresses array */
-    if (!common_params.addresses ||
-        zend_hash_num_elements(Z_ARRVAL_P(common_params.addresses)) == 0) {
-        const char* error_message = "Addresses array cannot be empty";
-        VALKEY_LOG_ERROR("mock_construct", error_message);
-        zend_throw_exception(get_valkey_glide_exception_ce(), error_message, 0);
-        return;
-    }
 
     /* Validate database_id range before setting */
     if (!common_params.database_id_is_null && common_params.database_id < 0) {
@@ -114,6 +116,8 @@ PHP_METHOD(ClientConstructorMock, simulate_standalone_constructor) {
         zend_throw_exception(get_valkey_glide_exception_ce(), error_message, 0);
         return;
     }
+
+    bool addresses_allocated = _populate_addresses(&common_params.addresses);
 
     /* Build client configuration from individual parameters */
     valkey_glide_base_client_configuration_t client_config;
@@ -124,11 +128,18 @@ PHP_METHOD(ClientConstructorMock, simulate_standalone_constructor) {
 
     /* Build the connection request. */
     size_t   protobuf_message_len;
-    uint8_t* request_bytes = create_connection_request(
-        "localhost", 6379, &protobuf_message_len, &client_config, 0, false, false);
+    uint8_t* request_bytes =
+        create_connection_request(&protobuf_message_len, &client_config, 0, false, false);
 
     zval* php_request =
         build_php_connection_request(request_bytes, protobuf_message_len, &client_config);
+
+    /* Clean up allocated addresses */
+    if (addresses_allocated) {
+        zval_ptr_dtor(common_params.addresses);
+        efree(common_params.addresses);
+    }
+
     RETURN_ZVAL(php_request, 1, 1);
 }
 
@@ -139,9 +150,9 @@ PHP_METHOD(ClientConstructorMock, simulate_cluster_constructor) {
     valkey_glide_php_common_constructor_params_t common_params;
     valkey_glide_init_common_constructor_params(&common_params);
 
-    ZEND_PARSE_PARAMETERS_START(1, 12)
-    Z_PARAM_ARRAY(common_params.addresses)
+    ZEND_PARSE_PARAMETERS_START(0, 13)
     Z_PARAM_OPTIONAL
+    Z_PARAM_ARRAY_OR_NULL(common_params.addresses)
     Z_PARAM_BOOL(common_params.use_tls)
     Z_PARAM_ARRAY_OR_NULL(common_params.credentials)
     Z_PARAM_LONG(common_params.read_from)
@@ -153,6 +164,8 @@ PHP_METHOD(ClientConstructorMock, simulate_cluster_constructor) {
     Z_PARAM_ARRAY_OR_NULL(common_params.advanced_config)
     Z_PARAM_BOOL_OR_NULL(common_params.lazy_connect, common_params.lazy_connect_is_null)
     Z_PARAM_LONG_OR_NULL(common_params.database_id, common_params.database_id_is_null)
+    Z_PARAM_RESOURCE_EX(
+        common_params.context, 1, 0) /* Use Z_PARAM_RESOURCE_OR_NULL with PHP 8.5+ */
     ZEND_PARSE_PARAMETERS_END_EX(RETURN_THROWS());
 
     /* Validate database_id range before setting */
@@ -162,6 +175,8 @@ PHP_METHOD(ClientConstructorMock, simulate_cluster_constructor) {
         zend_throw_exception(get_valkey_glide_exception_ce(), error_message, 0);
         return;
     }
+
+    bool addresses_allocated = _populate_addresses(&common_params.addresses);
 
     /* Build cluster client configuration from individual parameters */
     valkey_glide_cluster_client_configuration_t client_config;
@@ -190,9 +205,7 @@ PHP_METHOD(ClientConstructorMock, simulate_cluster_constructor) {
     /* Build the connection request. */
     size_t   protobuf_message_len;
     uint8_t* request_bytes =
-        create_connection_request("localhost",
-                                  6379,
-                                  &protobuf_message_len,
+        create_connection_request(&protobuf_message_len,
                                   &client_config.base,
                                   client_config.periodic_checks_status,
                                   true,
@@ -200,5 +213,58 @@ PHP_METHOD(ClientConstructorMock, simulate_cluster_constructor) {
 
     zval* php_request =
         build_php_connection_request(request_bytes, protobuf_message_len, &client_config.base);
+
+    /* Clean up allocated addresses */
+    if (addresses_allocated) {
+        zval_ptr_dtor(common_params.addresses);
+        efree(common_params.addresses);
+    }
+
     RETURN_ZVAL(php_request, 1, 1);
+}
+
+/**
+ * Populates address with default values if not specified or incomplete.
+ * @param addresses Pointer to the zval containing the addresses array.
+ * @return true if memory was allocated, false otherwise
+ */
+static bool _populate_addresses(zval** addresses) {
+    bool allocated = false;
+
+    // If addresses was not provided, create an empty array
+    if (*addresses == NULL) {
+        *addresses = emalloc(sizeof(zval));
+        array_init(*addresses);
+        allocated = true;
+    }
+
+    // If addresses array is empty, add a default entry.
+    if (zend_hash_num_elements(Z_ARRVAL_P(*addresses)) == 0) {
+        zval address_entry;
+        array_init(&address_entry);
+        zend_hash_next_index_insert(Z_ARRVAL_P(*addresses), &address_entry);
+    }
+
+    // Iterate through addresses and set default host and port if missing.
+    HashTable* addresses_ht = Z_ARRVAL_P(*addresses);
+    zval*      addr_val;
+
+    ZEND_HASH_FOREACH_VAL(addresses_ht, addr_val) {
+        HashTable* addr_ht = Z_ARRVAL_P(addr_val);
+
+        if (!zend_hash_str_exists(addr_ht, HOST_KEY, sizeof(HOST_KEY) - 1)) {
+            zval host_val;
+            ZVAL_STRING(&host_val, DEFAULT_HOST);
+            zend_hash_str_add(addr_ht, HOST_KEY, sizeof(HOST_KEY) - 1, &host_val);
+        }
+
+        if (!zend_hash_str_exists(addr_ht, PORT_KEY, sizeof(PORT_KEY) - 1)) {
+            zval port_val;
+            ZVAL_LONG(&port_val, DEFAULT_PORT);
+            zend_hash_str_add(addr_ht, PORT_KEY, sizeof(PORT_KEY) - 1, &port_val);
+        }
+    }
+    ZEND_HASH_FOREACH_END();
+
+    return allocated;
 }

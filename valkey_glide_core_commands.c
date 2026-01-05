@@ -42,9 +42,7 @@ extern char* double_to_string(double value, size_t* len);
 
 
 /* Create a connection request in protobuf format. Made visible for testing. */
-uint8_t* create_connection_request(const char*                               host,
-                                   int                                       port,
-                                   size_t*                                   len,
+uint8_t* create_connection_request(size_t*                                   len,
                                    valkey_glide_base_client_configuration_t* config,
                                    valkey_glide_periodic_checks_status_t     periodic_checks,
                                    bool                                      is_cluster,
@@ -52,43 +50,25 @@ uint8_t* create_connection_request(const char*                               hos
     /* Create a connection request */
     ConnectionRequest__ConnectionRequest conn_req = CONNECTION_REQUEST__CONNECTION_REQUEST__INIT;
 
-    /* Set up the node address */
-    ConnectionRequest__NodeAddress default_addr          = CONNECTION_REQUEST__NODE_ADDRESS__INIT;
-    default_addr.host                                    = (char*) host;
-    default_addr.port                                    = port;
-    ConnectionRequest__NodeAddress* default_addr_list[1] = {&default_addr};
+    /* Addresses array is non-empty - see ValkeyGlide::__construct */
+    size_t                       address_count = config->addresses_count;
+    valkey_glide_node_address_t* addresses     = config->addresses;
 
-    bool   request_contains_addresses = config->addresses && config->addresses_count > 0;
-    size_t addresses_count            = request_contains_addresses ? config->addresses_count : 0;
-    ConnectionRequest__NodeAddress
-        request_addresses[addresses_count];  // Using a variable-length array to avoid memory
-                                             // management.
-    ConnectionRequest__NodeAddress* request_addresses_list[addresses_count];
-    for (size_t i = 0; i < addresses_count; ++i) {
-        // Initialize a temporary NodeAddress then copy it to request_addresses. This is not
-        // strictly necessary since we set all fields anyway, but follows the best practice of using
-        // protobuf initializers on new messages.
-        ConnectionRequest__NodeAddress temp_address = CONNECTION_REQUEST__NODE_ADDRESS__INIT;
-        request_addresses[i]                        = temp_address;
+    // Using variable-length arrays to avoid memory management.
+    ConnectionRequest__NodeAddress  request_addresses[address_count];
+    ConnectionRequest__NodeAddress* request_addresses_list[address_count];
 
-        request_addresses[i].host = (char*) config->addresses[i].host;
-        request_addresses[i].port = config->addresses[i].port;
+    for (size_t i = 0; i < address_count; ++i) {
+        request_addresses[i] =
+            (ConnectionRequest__NodeAddress) CONNECTION_REQUEST__NODE_ADDRESS__INIT;
+        request_addresses[i].host = (char*) addresses[i].host;
+        request_addresses[i].port = addresses[i].port;
         request_addresses_list[i] = &request_addresses[i];
     }
 
-    ConnectionRequest__NodeAddress node_addr = CONNECTION_REQUEST__NODE_ADDRESS__INIT;
-    node_addr.host                           = (char*) host;
-    node_addr.port                           = port;
-
-    /* Add the node address to the connection request. Use the default endpoint if the constructor
-       call did not supply any endpoints. */
-    if (request_contains_addresses) {
-        conn_req.n_addresses = addresses_count;
-        conn_req.addresses   = request_addresses_list;
-    } else {
-        conn_req.n_addresses = 1;
-        conn_req.addresses   = default_addr_list;
-    }
+    /* Add the node address to the connection request. */
+    conn_req.n_addresses = config->addresses_count;
+    conn_req.addresses   = request_addresses_list;
 
     /* Set up authentication if provided */
     ConnectionRequest__AuthenticationInfo auth_info = CONNECTION_REQUEST__AUTHENTICATION_INFO__INIT;
@@ -117,16 +97,29 @@ uint8_t* create_connection_request(const char*                               hos
         conn_req.authentication_info = &auth_info;
     }
 
-    /* Set values from configuration */
-    conn_req.tls_mode = CONNECTION_REQUEST__TLS_MODE__NoTls;
-    if (config->use_tls) {
-        if (config->advanced_config && config->advanced_config->tls_config &&
-            config->advanced_config->tls_config->use_insecure_tls) {
-            conn_req.tls_mode = CONNECTION_REQUEST__TLS_MODE__InsecureTls;
-        } else {
-            conn_req.tls_mode = CONNECTION_REQUEST__TLS_MODE__SecureTls;
+    /* Set TLS mode */
+    if (!config->use_tls) {
+        conn_req.tls_mode = CONNECTION_REQUEST__TLS_MODE__NoTls;
+    } else if (config->advanced_config && config->advanced_config->tls_config &&
+               config->advanced_config->tls_config->use_insecure_tls) {
+        conn_req.tls_mode = CONNECTION_REQUEST__TLS_MODE__InsecureTls;
+    } else {
+        conn_req.tls_mode = CONNECTION_REQUEST__TLS_MODE__SecureTls;
+    }
+
+    /* Set root certificates */
+    ProtobufCBinaryData root_cert_data;
+    if (config->advanced_config && config->advanced_config->tls_config) {
+        valkey_glide_tls_advanced_configuration_t* tls_config = config->advanced_config->tls_config;
+
+        if (tls_config->root_certs && tls_config->root_certs_len > 0) {
+            root_cert_data =
+                (ProtobufCBinaryData){tls_config->root_certs_len, tls_config->root_certs};
+            conn_req.n_root_certs = 1;
+            conn_req.root_certs   = &root_cert_data;
         }
     }
+
     conn_req.cluster_mode_enabled = is_cluster;
     conn_req.request_timeout =
         config->request_timeout > 0 ? config->request_timeout : 5000; /* Default 5 seconds */
@@ -219,18 +212,9 @@ static const ConnectionResponse* create_base_glide_client(
     valkey_glide_periodic_checks_status_t     periodic_checks,
     bool                                      is_cluster,
     bool                                      refresh_topology_from_initial_nodes) {
-    /* Create a connection request using first address or default */
-    size_t      len;
-    const char* default_host = "localhost";
-    int         default_port = 6379;
-
-    uint8_t* request_bytes = create_connection_request(default_host,
-                                                       default_port,
-                                                       &len,
-                                                       config,
-                                                       periodic_checks,
-                                                       is_cluster,
-                                                       refresh_topology_from_initial_nodes);
+    size_t   len;
+    uint8_t* request_bytes = create_connection_request(
+        &len, config, periodic_checks, is_cluster, refresh_topology_from_initial_nodes);
 
     if (!request_bytes) {
         return NULL;

@@ -100,10 +100,6 @@ class TestSuite
     private static $BOLD_ON = "\033[1m";
     private static $BOLD_OFF = "\033[0m";
 
-    private static $BLACK = "\033[0;30m";
-    private static $DARKGRAY = "\033[1;30m";
-    private static $BLUE = "\033[0;34m";
-    private static $PURPLE = "\033[0;35m";
     private static $GREEN = "\033[0;32m";
     private static $YELLOW = "\033[0;33m";
     private static $RED = "\033[0;31m";
@@ -435,6 +431,16 @@ class TestSuite
         );
 
         return false;
+    }
+
+    protected function assertEmpty($v): bool
+    {
+        if (count($v)) {
+            self::$errors[] = $this->assertionTrace("%s is not empty", $this->printArg($v));
+            return false;
+        }
+
+        return true;
     }
 
     protected function assertIsArray($v, ?int $size = null): bool
@@ -924,6 +930,12 @@ class TestSuite
 
         $max_test_len = self::getMaxTestLen($methods, $limit);
 
+        $passed = 0;
+        $failed = 0;
+        $skipped = 0;
+        $failed_tests = [];
+        $skipped_tests = [];
+
         foreach ($methods as $m) {
             $name = $m->name;
             if (substr($name, 0, 4) !== 'test') {
@@ -947,16 +959,23 @@ class TestSuite
 
                 if ($count === count($class_name::$errors)) {
                     $result = self::makeSucces('PASSED');
+                    $passed++;
                 } else {
                     $result = self::makeFail('FAILED');
+                    $failed++;
+                    $failed_tests[] = $class_name . '::' . $name;
                 }
             } catch (Exception $e) {
                 /* We may have simply skipped the test */
                 if ($e instanceof TestSkippedException) {
                     $result = self::makeWarning('SKIPPED');
+                    $skipped++;
+                    $skipped_tests[] = $class_name . '::' . $name;
                 } else {
                     $class_name::$errors[] = "Uncaught exception '" . $e->getMessage() . "' ($name)\n" . $e->getTraceAsString() . "\n";
                     $result = self::makeFail('FAILED');
+                    $failed++;
+                    $failed_tests[] = $class_name . '::' .  $name;
                 }
             }
 
@@ -964,6 +983,29 @@ class TestSuite
         }
         echo "\n";
         echo implode('', $class_name::$warnings) . "\n";
+
+        $total = $passed + $failed + $skipped;
+        echo "========================\n";
+        echo "Test Summary\n";
+        echo "Passed: $passed\n";
+        echo "Failed: $failed\n";
+        echo "Skipped: $skipped\n";
+        echo "Total: $total\n";
+
+        if (!empty($failed_tests)) {
+            echo "\nFailed tests:\n";
+            foreach ($failed_tests as $test) {
+                echo "  - $test\n";
+            }
+        }
+
+        if (!empty($skipped_tests)) {
+            echo "\nSkipped tests:\n";
+            foreach ($skipped_tests as $test) {
+                echo "  - $test\n";
+            }
+        }
+        echo "========================\n\n";
 
         if (empty($class_name::$errors)) {
             echo "All tests passed. \o/\n";

@@ -74,7 +74,6 @@ defined('VALKEY_GLIDE_PHP_TESTRUN') or die('Use TestValkeyGlide.php to run tests
 
 require_once __DIR__ . '/ValkeyGlideBaseTest.php';
 
-
 class ValkeyGlideTest extends ValkeyGlideBaseTest
 {
     /**
@@ -242,8 +241,6 @@ class ValkeyGlideTest extends ValkeyGlideBaseTest
             $this->assertEquals(5, $this->valkey_glide->bitcount('bitcountkey', 0, 9, true));
         }
     }
-
-
 
     public function testBitop()
     {
@@ -7852,10 +7849,61 @@ if (extension_loaded("valkey_glide") || dl("' . __DIR__ . '/../modules/valkey_gl
             ]
         );
 
-        // Perform basic operation to verify client works
-        $result = $client->ping();
-        $this->assertTrue($result);
+        $this->assertConnected($client);
 
         $client->close();
+    }
+
+    // TLS Tests
+    // ---------
+
+    public function testTlsSecureStream()
+    {
+        $client = new ValkeyGlide(
+            addresses: [self::TLS_ADDRESS_STANDALONE],
+            advanced_config: ['connection_timeout' => 5000], # Allow longer timeout for TLS connection
+            context: stream_context_create(['ssl' => ['cafile' => self::TLS_CERTIFICATE_PATH]])
+        );
+
+        $this->assertConnected($client);
+    }
+
+    public function testTlsSecureConfig()
+    {
+        $client = new ValkeyGlide(
+            addresses: [self::TLS_ADDRESS_STANDALONE],
+            use_tls: true,
+            advanced_config: [
+                'connection_timeout' => 5000, # Allow longer timeout for TLS connection
+                'tls_config' => ['root_certs' => file_get_contents(self::TLS_CERTIFICATE_PATH)]
+            ]
+        );
+
+        $this->assertConnected($client);
+    }
+
+    public function testTlsInsecureStream()
+    {
+        $client = new ValkeyGlide(
+            addresses: [self::TLS_ADDRESS_STANDALONE],
+            advanced_config: ['connection_timeout' => 5000], # Allow longer timeout for TLS connection
+            context: stream_context_create(['ssl' => ['verify_peer' => false]])
+        );
+
+        $this->assertConnected($client);
+    }
+
+    public function testTlsInsecureConfig()
+    {
+        $client = new ValkeyGlide(
+            addresses: [self::TLS_ADDRESS_STANDALONE],
+            use_tls: true,
+            advanced_config: [
+                'connection_timeout' => 5000, # Allow longer timeout for TLS connection
+                'tls_config' => ['use_insecure_tls' => true]
+            ]
+        );
+
+        $this->assertConnected($client);
     }
 }
