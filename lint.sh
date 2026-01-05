@@ -22,5 +22,10 @@ echo ""
 echo "=== C Code Linting ==="
 "$SCRIPT_DIR/lint-c.sh" "$FIX"
 
+# Run Markdown linting
+echo ""
+echo "=== Markdown Linting ==="
+"$SCRIPT_DIR/lint-md.sh" "$FIX"
+
 echo ""
 echo "✓ All linting completed!"

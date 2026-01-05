@@ -32,6 +32,7 @@ Software Dependencies
 - rustup
 - ziglang and zigbuild (for GNU Linux only)
 - valkey (for testing)
+- markdownlint-cli >= 0.32.0 (for markdown linting)
 
 **Valkey installation**
 
@@ -44,9 +45,12 @@ sudo apt update -y
 sudo apt install -y php-dev php-cli git gcc make autotools-dev libtool pkg-config openssl libssl-dev unzip libprotobuf-c-dev libprotobuf-c1
 
 # Install clang-format-18 and ensure clang-format points to it.
-sudo apt install -y clang-format-18
+sudo apt install -y clang-format-18 nodejs npm
 sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100
 clang-format --version  # Version 18.x
+
+# Install markdownlint-cli
+npm install -g markdownlint-cli
 
 # Install rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -61,7 +65,11 @@ Continue with **Install protobuf compiler** and **Install `ziglang` and `zigbuil
 
 ```bash
 sudo yum update -y
-sudo yum install -y php-devel php-cli git gcc make autoconf automake libtool pkgconfig openssl openssl-devel unzip php-bcmath
+sudo yum install -y php-devel php-cli git gcc make autoconf automake libtool pkgconfig openssl openssl-devel unzip php-bcmath nodejs npm
+
+# Install markdownlint-cli
+npm install -g markdownlint-cli
+
 # Install rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source "$HOME/.cargo/env"
@@ -75,7 +83,7 @@ Continue with **Install protobuf compiler** and **Install `ziglang` and `zigbuil
 
 ```bash
 brew update
-brew install php@8.3 git gcc make autoconf automake libtool pkgconfig protobuf openssl protobuf-c composer
+brew install php@8.3 git gcc make autoconf automake libtool pkgconfig protobuf openssl protobuf-c composer node
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source "$HOME/.cargo/env"
 # Check that the Rust compiler is installed
@@ -86,6 +94,9 @@ brew install llvm@18
 echo 'export PATH="/opt/homebrew/opt/llvm@18/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 clang-format --version  # Should show version 18.x
+
+# Install markdownlint-cli
+npm install -g markdownlint-cli
 ```
 
 **Install protobuf compiler**
@@ -278,6 +289,7 @@ Development on the PHP wrapper involves changes in both C and PHP code. We have 
 - `clang-format` - C code formatting with Google-based style. Configured by `.clang-format`.
 - `phpcs` (PHP_CodeSniffer) - enforces PHP code standards. Configured by `phpcs.xml`.
 - `phpcbf` (PHP Code Beautifier and Fixer) - corrects PHP code standards. Configured by `phpcs.xml`.
+- `markdownlint` - enforces Markdown formatting and style standards. Configured by `.markdownlint.json`.
 
 #### Running Linters
 
@@ -293,6 +305,10 @@ Development on the PHP wrapper involves changes in both C and PHP code. We have 
 # PHP code only
 ./lint-php.sh        # Check
 ./lint-php.sh --fix  # Fix
+
+# Markdown only
+./lint-md.sh         # Check
+./lint-md.sh --fix   # Fix
 ```
 
 #### Git Hooks
