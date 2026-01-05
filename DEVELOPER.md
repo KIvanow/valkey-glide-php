@@ -32,6 +32,7 @@ Software Dependencies
 - rustup
 - ziglang and zigbuild (for GNU Linux only)
 - valkey (for testing)
+- clang-format 18.x (for C linting)
 - markdownlint-cli 0.44.x (for markdown linting)
 
 **Valkey installation**
