@@ -32,7 +32,7 @@ Software Dependencies
 - rustup
 - ziglang and zigbuild (for GNU Linux only)
 - valkey (for testing)
-- markdownlint-cli >= 0.32.0 (for markdown linting)
+- markdownlint-cli 0.44.x (for markdown linting)
 
 **Valkey installation**
 
@@ -50,7 +50,7 @@ sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/c
 clang-format --version  # Version 18.x
 
 # Install markdownlint-cli
-npm install -g markdownlint-cli
+npm install -g markdownlint-cli@0.44.0
 
 # Install rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -68,7 +68,7 @@ sudo yum update -y
 sudo yum install -y php-devel php-cli git gcc make autoconf automake libtool pkgconfig openssl openssl-devel unzip php-bcmath nodejs npm
 
 # Install markdownlint-cli
-npm install -g markdownlint-cli
+npm install -g markdownlint-cli@0.44.0
 
 # Install rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -96,7 +96,7 @@ source ~/.zshrc
 clang-format --version  # Should show version 18.x
 
 # Install markdownlint-cli
-npm install -g markdownlint-cli
+npm install -g markdownlint-cli@0.44.0
 ```
 
 **Install protobuf compiler**

@@ -13,17 +13,14 @@ echo "Running Markdown linting..."
 if ! command -v markdownlint &> /dev/null; then
     echo "Error: markdownlint not found"
     echo "Install with:"
-    echo "- \`npm install -g markdownlint-cli\` (npm)"
-    echo "- \`yarn global add markdownlint-cli\` (yarn)"
-    echo "- \`pnpm add -g markdownlint-cli\` (pnpm)"
+    echo "- \`npm install -g markdownlint-cli\`"
     exit 1
 fi
 
 # Verify markdownlint version.
 MARKDOWNLINT_VERSION=$(markdownlint --version | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1)
-REQUIRED_VERSION="0.32.0"
-if [[ "$(printf '%s\n' "$REQUIRED_VERSION" "$MARKDOWNLINT_VERSION" | sort -V | head -n1)" != "$REQUIRED_VERSION" ]]; then
-    echo "Error: Expected markdownlint version >= $REQUIRED_VERSION but got $MARKDOWNLINT_VERSION"
+if [[ ! "$MARKDOWNLINT_VERSION" =~ ^0\.44\. ]]; then
+    echo "Error: Expected markdownlint version 0.44.x but got $MARKDOWNLINT_VERSION"
     exit 1
 fi
 
