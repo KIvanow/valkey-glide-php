@@ -7,8 +7,6 @@
 #include <stdio.h>
 #include <zend_smart_str.h>
 
-#include <ext/standard/php_smart_string.h>
-
 #include "include/glide_bindings.h"
 
 /* ValkeyGlidePHP version */
@@ -81,13 +79,14 @@ typedef struct {
     valkey_glide_iam_config_t* iam_config; /* NULL if using password auth */
 } valkey_glide_server_credentials_t;
 
-/* Default values for connection configuration options. */
-#define VALKEY_GLIDE_DEFAULT_NUM_OF_RETRIES 5
-#define VALKEY_GLIDE_DEFAULT_FACTOR 100
-#define VALKEY_GLIDE_DEFAULT_EXPONENT_BASE 2
-#define VALKEY_GLIDE_DEFAULT_JITTER_PERCENTAGE 20
+/* Address Constants */
+#define VALKEY_GLIDE_ADDRESS_HOST "host"
+#define VALKEY_GLIDE_ADDRESS_PORT "port"
 
-#define VALKEY_GLIDE_DEFAULT_CONNECTION_TIMEOUT 250
+/* Authentication Constants */
+#define VALKEY_GLIDE_AUTH_PASSWORD "password"
+#define VALKEY_GLIDE_AUTH_USERNAME "username"
+#define VALKEY_GLIDE_AUTH_IAM_CONFIG "iamConfig"
 
 /* IAM Authentication Constants */
 #define VALKEY_GLIDE_IAM_SERVICE_ELASTICACHE "Elasticache"
@@ -97,6 +96,30 @@ typedef struct {
 #define VALKEY_GLIDE_IAM_CONFIG_SERVICE "service"
 #define VALKEY_GLIDE_IAM_CONFIG_REFRESH_INTERVAL "refreshIntervalSeconds"
 
+/* Connection Configuration Constants */
+#define VALKEY_GLIDE_NUM_OF_RETRIES "num_of_retries"
+#define VALKEY_GLIDE_FACTOR "factor"
+#define VALKEY_GLIDE_EXPONENT_BASE "exponent_base"
+#define VALKEY_GLIDE_JITTER_PERCENT "jitter_percent"
+#define VALKEY_GLIDE_CONNECTION_TIMEOUT "connection_timeout"
+
+#define VALKEY_GLIDE_DEFAULT_NUM_OF_RETRIES 5
+#define VALKEY_GLIDE_DEFAULT_FACTOR 100
+#define VALKEY_GLIDE_DEFAULT_EXPONENT_BASE 2
+#define VALKEY_GLIDE_DEFAULT_JITTER_PERCENTAGE 20
+#define VALKEY_GLIDE_DEFAULT_CONNECTION_TIMEOUT 250
+
+/* TLS Constants */
+#define VALKEY_GLIDE_TLS_PREFIX "tls://"
+#define VALKEY_GLIDE_SSL_PREFIX "ssl://"
+#define VALKEY_GLIDE_SSL_OPTIONS "ssl"
+#define VALKEY_GLIDE_VERIFY_PEER "verify_peer"
+#define VALKEY_GLIDE_CAFILE "cafile"
+
+#define VALKEY_GLIDE_USE_TLS "use_tls"
+#define VALKEY_GLIDE_TLS_CONFIG "tls_config"
+#define VALKEY_GLIDE_USE_INSECURE_TLS "use_insecure_tls"
+#define VALKEY_GLIDE_ROOT_CERTS "root_certs"
 
 typedef struct {
     int num_of_retries;
@@ -106,7 +129,9 @@ typedef struct {
 } valkey_glide_backoff_strategy_t;
 
 typedef struct {
-    bool use_insecure_tls; /* false if not set */
+    uint8_t* root_certs;       /* Certificate data bytes */
+    size_t   root_certs_len;   /* Length of certificate data */
+    bool     use_insecure_tls; /* Whether to use insecure TLS (skips certificate verification) */
 } valkey_glide_tls_advanced_configuration_t;
 
 typedef struct {
@@ -168,6 +193,7 @@ typedef struct {
     zend_bool lazy_connect_is_null;
     zend_long database_id;
     zend_bool database_id_is_null;
+    zval*     context; /* Stream context for TLS */
 } valkey_glide_php_common_constructor_params_t;
 
 void valkey_glide_init_common_constructor_params(

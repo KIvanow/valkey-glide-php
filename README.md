@@ -34,7 +34,7 @@ Valkey GLIDE is API-compatible with the following engine versions:
 
 ## Getting Started - PHP Wrapper
 
-## System Requirements
+### System Requirements
 
 The release of Valkey GLIDE was tested on the following platforms:
 
@@ -48,16 +48,16 @@ macOS:
 
 - macOS 14.7 (Apple silicon/aarch_64)
 
-## PHP Supported Versions
+### PHP Supported Versions
 
 | PHP Version |
 |-------------|
 | 8.2         |
 | 8.3         |
 
-## Installation and Setup
+### Installation and Setup
 
-### Prerequisites
+#### Prerequisites
 
 Before installing Valkey GLIDE PHP extension, ensure you have the following dependencies:
 
@@ -70,7 +70,7 @@ Before installing Valkey GLIDE PHP extension, ensure you have the following depe
 - rustup (Rust toolchain)
 - php-bcmath (Protobuf PHP dependency, needed only for testing)
 
-### Installing Dependencies
+#### Installing Dependencies
 
 **Ubuntu/Debian:**
 
@@ -101,7 +101,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source "$HOME/.cargo/env"
 ```
 
-### Installing protobuf compiler
+#### Installing protobuf compiler
 
 **For macOS:**
 
@@ -181,7 +181,7 @@ php -m | grep valkey_glide
 php -r "if (extension_loaded('valkey_glide')) echo 'SUCCESS: Extension loaded!'; else echo 'ERROR: Extension not loaded';"
 ```
 
-### Building and Installing the Extension from source
+#### Building and Installing the Extension from source
 
 1. Clone the repository:
 
@@ -243,128 +243,98 @@ php -r "if (extension_loaded('valkey_glide')) echo 'SUCCESS: Extension loaded!';
 ### Standalone Valkey
 
 ```php
-<?php
-try {
-    // Create client configuration
-    $addresses = [
-        ['host' => 'localhost', 'port' => 6379]
-    ];
-    
-    // Create ValkeyGlide client
-    $client = new ValkeyGlide(
-        $addresses,                       // addresses
-        false,                            // use_tls
-        null,                             // credentials  
-    );
-    
-    // Basic operations
-    $setResult = $client->set('foo', 'bar');
-    echo "SET result: " . $setResult . "\n";
-    
-    $getValue = $client->get('foo');
-    echo "GET result: " . $getValue . "\n";
-    
-    $pingResult = $client->ping();
-    echo "PING result: " . $pingResult . "\n";
-    
-    // Close the connection
-    $client->close();
-    
-} catch (Exception $e) {
-    echo "Error: " . $e->getMessage() . "\n";
-}
-?>
+// Create ValkeyGlide client
+$client = new ValkeyGlide(
+    addresses: [['host' => 'localhost', 'port' => 6379]]
+);
+
+// Basic operations
+$setResult = $client->set('foo', 'bar');
+echo "SET result: " . $setResult . "\n";
+
+$getValue = $client->get('foo');
+echo "GET result: " . $getValue . "\n";
+
+$pingResult = $client->ping();
+echo "PING result: " . $pingResult . "\n";
+
+// Close the connection
+$client->close();
 ```
 
-### AWS ElastiCache/MemoryDB with IAM Authentication
+### With IAM Authentication for AWS ElastiCache
 
 ```php
-<?php
-try {
-    // Create client with IAM authentication for AWS ElastiCache
-    $client = new ValkeyGlide(
-        addresses: [
-            ['host' => 'my-cluster.xxxxx.use1.cache.amazonaws.com', 'port' => 6379]
-        ],
-        use_tls: true,  // REQUIRED for IAM authentication
-        credentials: [
-            'username' => 'my-iam-user',  // REQUIRED for IAM
-            'iamConfig' => [
-                ValkeyGlide::IAM_CONFIG_CLUSTER_NAME => 'my-cluster',
-                ValkeyGlide::IAM_CONFIG_REGION => 'us-east-1',
-                ValkeyGlide::IAM_CONFIG_SERVICE => ValkeyGlide::IAM_SERVICE_ELASTICACHE,
-                ValkeyGlide::IAM_CONFIG_REFRESH_INTERVAL => 300  // Optional, defaults to 300 seconds
-            ]
+// Create ValkeyGlide client with IAM authentication.
+$client = new ValkeyGlide(
+    addresses: [['host' => 'my-cluster.xxxxx.use1.cache.amazonaws.com', 'port' => 6379]],
+    use_tls: true,  // REQUIRED for IAM authentication
+    credentials: [
+        'username' => 'my-iam-user',  // REQUIRED for IAM
+        'iamConfig' => [
+            ValkeyGlide::IAM_CONFIG_CLUSTER_NAME => 'my-cluster',
+            ValkeyGlide::IAM_CONFIG_REGION => 'us-east-1',
+            ValkeyGlide::IAM_CONFIG_SERVICE => ValkeyGlide::IAM_SERVICE_ELASTICACHE,
+            ValkeyGlide::IAM_CONFIG_REFRESH_INTERVAL => 300  // Optional, defaults to 300 seconds
         ]
-    );
-    
-    // Use the client normally - IAM tokens are managed automatically
-    $client->set('key', 'value');
-    $value = $client->get('key');
-    echo "Value: " . $value . "\n";
-    
-    $client->close();
-    
-} catch (Exception $e) {
-    echo "Error: " . $e->getMessage() . "\n";
-}
-?>
+    ]
+);
+
+// Use the client normally - IAM tokens are managed automatically
+$client->set('key', 'value');
+$value = $client->get('key');
+echo "Value: " . $value . "\n";
+
+$client->close();
+```
+
+### With TLS
+
+```php
+// Create ValkeyGlide client with TLS configuration
+$client = new ValkeyGlide(
+    addresses: [['host' => 'localhost', 'port' => 6379]],
+    use_tls: true
+    advanced_config: ['tls_config' => ['root_certs' => $root_certs_data]]
+);
+
+// Create ValkeyGlide client with TLS stream context
+$client = new ValkeyGlide(
+    addresses: [['host' => 'localhost', 'port' => 6379]],
+    context: stream_context_create(['ssl' => 'ca-cert.pem'])   
+)
 ```
 
 ### Cluster Valkey
 
 ```php
-<?php
-try {
-    // Create cluster client configuration
-    $addresses = [
-        ['host' => 'localhost', 'port' => 7001],
-        ['host' => 'localhost', 'port' => 7002],
-        ['host' => 'localhost', 'port' => 7003]
-    ];
-    
-    // Create ValkeyGlideCluster client with multi-database support (Valkey 9.0+)
-    $client = new ValkeyGlideCluster(
-        $addresses,                          // addresses
-        false,                               // use_tls
-        null,                                // credentials
-        ValkeyGlide::READ_FROM_PREFER_REPLICA, // read_from
-        null,                                // request_timeout
-        null,                                // reconnect_strategy
-        null,                                // client_name
-        null,                                // periodic_checks
-        null,                                // client_az
-        null,                                // advanced_config
-        null,                                // lazy_connect
-        1                                    // database_id (requires Valkey 9.0+ with cluster-databases > 1)
-    );
-    
-    // Basic operations
-    $setResult = $client->set('foo', 'bar');
-    echo "SET result: " . $setResult . "\n";
-    
-    $getValue = $client->get('foo');
-    echo "GET result: " . $getValue . "\n";
-    
-    $pingResult = $client->ping();
-    echo "PING result: " . $pingResult . "\n";
-    
-    // Close the connection
-    $client->close();
-    
-} catch (Exception $e) {
-    echo "Error: " . $e->getMessage() . "\n";
-}
-?>
+// Create cluster client configuration
+$addresses = [
+    ['host' => 'localhost', 'port' => 7001],
+    ['host' => 'localhost', 'port' => 7002],
+    ['host' => 'localhost', 'port' => 7003]
+];
+
+// Create ValkeyGlideCluster client with multi-database support (Valkey 9.0+)
+$client = new ValkeyGlideCluster(
+    addresses: $addresses,
+    read_from: ValkeyGlide::READ_FROM_PREFER_REPLICA, 
+    database_id: 1 // Requires Valkey 9.0+ with cluster-databases > 1
+);
+
+// Basic operations
+$setResult = $client->set('foo', 'bar');
+echo "SET result: " . $setResult . "\n";
+
+$getValue = $client->get('foo');
+echo "GET result: " . $getValue . "\n";
+
+$pingResult = $client->ping();
+echo "PING result: " . $pingResult . "\n";
+
+// Close the connection
+$client->close();
 ```
-
-### CI Validation
-
-All contributions are automatically validated through our CI pipeline, ensuring:
-
-- Code style compliance
-- All tests passing across supported PHP versions
-- Memory leak detection and performance benchmarks
 
 ## Building & Testing
 
@@ -373,6 +343,12 @@ Development instructions for local building & testing the package are in the [DE
 ## Contributing
 
 GitHub is a platform for collaborative coding. If you're interested in writing code, we encourage you to contribute by submitting pull requests from forked copies of this repository. Additionally, please consider creating GitHub issues for reporting bugs and suggesting new features. Feel free to comment on issues that interest. For more info see [Contributing](./CONTRIBUTING.md).
+
+All contributions are automatically validated through our CI pipeline, ensuring:
+
+- Code style compliance
+- All tests passing across supported PHP versions
+- Memory leak detection and performance benchmarks
 
 ## Get Involved
 

@@ -110,10 +110,15 @@ class ConnectionRequestTest extends \TestSuite
 
     public function testStandaloneBasicConstructor()
     {
-        $request = ClientConstructorMock::simulate_standalone_constructor([['host' => 'localhost', 'port' => 8080]]);
+        $request = ClientConstructorMock::simulate_standalone_constructor([
+            ['host' => 'localhost', 'port' => 8080]
+        ]);
+
         $this->assertFalse($request->getClusterModeEnabled());
+
         $addresses = $request->getAddresses();
         $this->assertEquals(1, count($addresses));
+
         $address = $addresses[0];
         $this->assertEquals('localhost', $address->getHost());
         $this->assertEquals(8080, $address->getPort());
@@ -124,11 +129,14 @@ class ConnectionRequestTest extends \TestSuite
         $request = ClientConstructorMock::simulate_standalone_constructor([
             ['host' => 'localhost', 'port' => 8080],
             ['host' => '172.0.1.24', 'port' => 9000]]);
+
         $addresses = $request->getAddresses();
         $this->assertEquals(2, count($addresses));
+
         $address = $addresses[0];
         $this->assertEquals('localhost', $address->getHost());
         $this->assertEquals(8080, $address->getPort());
+
         $address = $addresses[1];
         $this->assertEquals('172.0.1.24', $address->getHost());
         $this->assertEquals(9000, $address->getPort());
@@ -136,10 +144,14 @@ class ConnectionRequestTest extends \TestSuite
 
     public function testClusterBasicConstructor()
     {
-        $request = ClientConstructorMock::simulate_cluster_constructor([['host' => 'localhost', 'port' => 8080]]);
+        $request = ClientConstructorMock::simulate_cluster_constructor([
+            ['host' => 'localhost', 'port' => 8080]
+        ]);
         $this->assertTrue($request->getClusterModeEnabled());
+
         $addresses = $request->getAddresses();
         $this->assertEquals(1, count($addresses));
+
         $address = $addresses[0];
         $this->assertEquals('localhost', $address->getHost());
         $this->assertEquals(8080, $address->getPort());
@@ -150,276 +162,161 @@ class ConnectionRequestTest extends \TestSuite
         $request = ClientConstructorMock::simulate_cluster_constructor([
             ['host' => 'localhost', 'port' => 8080],
             ['host' => '172.0.1.24', 'port' => 9000]]);
+
         $addresses = $request->getAddresses();
         $this->assertEquals(2, count($addresses));
+
         $address = $addresses[0];
         $this->assertEquals('localhost', $address->getHost());
         $this->assertEquals(8080, $address->getPort());
+
         $address = $addresses[1];
         $this->assertEquals('172.0.1.24', $address->getHost());
         $this->assertEquals(9000, $address->getPort());
     }
 
-    public function testStandaloneUseTlsOn()
-    {
-        $request = ClientConstructorMock::simulate_standalone_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            use_tls: true
-        );
-        $this->assertEquals(\Connection_request\TlsMode::SecureTls, $request->getTlsMode());
-    }
-
-    public function testClusterUseTlsOn()
-    {
-        $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            use_tls: true
-        );
-        $this->assertEquals(\Connection_request\TlsMode::SecureTls, $request->getTlsMode());
-    }
-
-    public function testStandaloneUseTlsOff()
-    {
-        $request = ClientConstructorMock::simulate_standalone_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            use_tls: false
-        );
-        $this->assertEquals(\Connection_request\TlsMode::NoTls, $request->getTlsMode());
-    }
-
-    public function testClusterUseTlsOff()
-    {
-        $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            use_tls: false
-        );
-        $this->assertEquals(\Connection_request\TlsMode::NoTls, $request->getTlsMode());
-    }
-
     public function testStandaloneCredentials()
     {
         $request = ClientConstructorMock::simulate_standalone_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
             credentials: ['username' => 'user', 'password' => 'pass']
         );
-        $this->assertEquals('user', $request->getAuthenticationInfo()->getUsername());
-        $this->assertEquals('pass', $request->getAuthenticationInfo()->getPassword());
+
+        $authentication_info = $request->getAuthenticationInfo();
+        $this->assertEquals('user', $authentication_info->getUsername());
+        $this->assertEquals('pass', $authentication_info->getPassword());
     }
 
     public function testClusterCredentials()
     {
         $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
             credentials: ['username' => 'user', 'password' => 'pass']
         );
-        $this->assertEquals('user', $request->getAuthenticationInfo()->getUsername());
-        $this->assertEquals('pass', $request->getAuthenticationInfo()->getPassword());
+
+        $authentication_info = $request->getAuthenticationInfo();
+        $this->assertEquals('user', $authentication_info->getUsername());
+        $this->assertEquals('pass', $authentication_info->getPassword());
     }
 
     public function testStandaloneReadFrom()
     {
-        $request = ClientConstructorMock::simulate_standalone_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            read_from: ValkeyGlide::READ_FROM_AZ_AFFINITY
-        );
-
+        $request = ClientConstructorMock::simulate_standalone_constructor(read_from: ValkeyGlide::READ_FROM_AZ_AFFINITY);
         $this->assertEquals(\Connection_request\ReadFrom::AZAffinity, $request->getReadFrom());
     }
 
     public function testClusterReadFrom()
     {
-        $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            read_from: ValkeyGlide::READ_FROM_AZ_AFFINITY_REPLICAS_AND_PRIMARY
-        );
-
+        $request = ClientConstructorMock::simulate_cluster_constructor(read_from: ValkeyGlide::READ_FROM_AZ_AFFINITY_REPLICAS_AND_PRIMARY);
         $this->assertEquals(\Connection_request\ReadFrom::AZAffinityReplicasAndPrimary, $request->getReadFrom());
     }
 
     public function testStandaloneRequestTimeout()
     {
-        $request = ClientConstructorMock::simulate_standalone_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            request_timeout: 999
-        );
-
+        $request = ClientConstructorMock::simulate_standalone_constructor(request_timeout: 999);
         $this->assertEquals(999, $request->getRequestTimeout());
     }
 
     public function testClusterRequestTimeout()
     {
-        $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            request_timeout: 999
-        );
-
+        $request = ClientConstructorMock::simulate_cluster_constructor(request_timeout: 999);
         $this->assertEquals(999, $request->getRequestTimeout());
     }
 
     public function testStandaloneReconnectStrategy()
     {
         $request = ClientConstructorMock::simulate_standalone_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
             reconnect_strategy: ['num_of_retries' => 2, 'factor' => 3, 'exponent_base' => 7, 'jitter_percent' => 15]
         );
 
-        $this->assertEquals(2, $request->getConnectionRetryStrategy()->getNumberOfRetries());
-        $this->assertEquals(3, $request->getConnectionRetryStrategy()->getFactor());
-        $this->assertEquals(7, $request->getConnectionRetryStrategy()->getExponentBase());
-        $this->assertEquals(15, $request->getConnectionRetryStrategy()->getJitterPercent());
+        $connection_retry_strategy = $request->getConnectionRetryStrategy();
+        $this->assertEquals(2, $connection_retry_strategy->getNumberOfRetries());
+        $this->assertEquals(3, $connection_retry_strategy->getFactor());
+        $this->assertEquals(7, $connection_retry_strategy->getExponentBase());
+        $this->assertEquals(15, $connection_retry_strategy->getJitterPercent());
     }
 
     public function testClusterReconnectStrategy()
     {
         $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
             reconnect_strategy: ['num_of_retries' => 2, 'factor' => 3, 'exponent_base' => 7, 'jitter_percent' => 15]
         );
 
-        $this->assertEquals(2, $request->getConnectionRetryStrategy()->getNumberOfRetries());
-        $this->assertEquals(3, $request->getConnectionRetryStrategy()->getFactor());
-        $this->assertEquals(7, $request->getConnectionRetryStrategy()->getExponentBase());
-        $this->assertEquals(15, $request->getConnectionRetryStrategy()->getJitterPercent());
+        $connection_retry_strategy = $request->getConnectionRetryStrategy();
+        $this->assertEquals(2, $connection_retry_strategy->getNumberOfRetries());
+        $this->assertEquals(3, $connection_retry_strategy->getFactor());
+        $this->assertEquals(7, $connection_retry_strategy->getExponentBase());
+        $this->assertEquals(15, $connection_retry_strategy->getJitterPercent());
     }
 
     public function testStandaloneClientName()
     {
-        $request = ClientConstructorMock::simulate_standalone_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            client_name: 'foobar'
-        );
-
+        $request = ClientConstructorMock::simulate_standalone_constructor(client_name: 'foobar');
         $this->assertEquals('foobar', $request->getClientName());
     }
 
     public function testClusterClientName()
     {
-        $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            client_name: 'foobar'
-        );
-
+        $request = ClientConstructorMock::simulate_cluster_constructor(client_name: 'foobar');
         $this->assertEquals('foobar', $request->getClientName());
     }
 
     public function testStandaloneClientAz()
     {
-        $request = ClientConstructorMock::simulate_standalone_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            client_az: 'us-east-1'
-        );
-
+        $request = ClientConstructorMock::simulate_standalone_constructor(client_az: 'us-east-1');
         $this->assertEquals('us-east-1', $request->getClientAz());
     }
 
     public function testClusterClientAz()
     {
-        $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            client_az: 'us-east-1'
-        );
-
+        $request = ClientConstructorMock::simulate_cluster_constructor(client_az: 'us-east-1');
         $this->assertEquals('us-east-1', $request->getClientAz());
     }
 
     public function testStandaloneAdvancedConfig()
     {
-        $request = ClientConstructorMock::simulate_standalone_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            advanced_config: ['connection_timeout' => 999]
-        );
-
+        $request = ClientConstructorMock::simulate_standalone_constructor(advanced_config: ['connection_timeout' => 999]);
         $this->assertEquals(999, $request->getConnectionTimeout());
     }
 
     public function testClusterAdvancedConfig()
     {
-        $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            advanced_config: ['connection_timeout' => 999]
-        );
-
+        $request = ClientConstructorMock::simulate_cluster_constructor(advanced_config: ['connection_timeout' => 999]);
         $this->assertEquals(999, $request->getConnectionTimeout());
-    }
-
-    public function testStandaloneInsecureTls()
-    {
-        $request = ClientConstructorMock::simulate_standalone_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            use_tls: true,
-            advanced_config: ['tls_config' => ['use_insecure_tls' => true]]
-        );
-
-        $this->assertEquals(\Connection_request\TlsMode::InsecureTls, $request->getTlsMode());
-    }
-
-    public function testClusterInsecureTls()
-    {
-        $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            use_tls: true,
-            advanced_config: ['tls_config' => ['use_insecure_tls' => true]]
-        );
-
-        $this->assertEquals(\Connection_request\TlsMode::InsecureTls, $request->getTlsMode());
     }
 
     public function testStandaloneLazyConnect()
     {
-        $request = ClientConstructorMock::simulate_standalone_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            lazy_connect: true
-        );
-
+        $request = ClientConstructorMock::simulate_standalone_constructor(lazy_connect: true);
         $this->assertEquals(true, $request->getLazyConnect());
     }
 
     public function testClusterLazyConnect()
     {
-        $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            lazy_connect: true
-        );
-
+        $request = ClientConstructorMock::simulate_cluster_constructor(lazy_connect: true);
         $this->assertEquals(true, $request->getLazyConnect());
     }
 
     public function testStandaloneDatabaseId()
     {
-        $request = ClientConstructorMock::simulate_standalone_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            database_id: 7
-        );
-
+        $request = ClientConstructorMock::simulate_standalone_constructor(database_id: 7);
         $this->assertEquals(7, $request->getDatabaseId());
     }
 
     public function testClusterDatabaseId()
     {
-        $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
-            database_id: 5
-        );
-
+        $request = ClientConstructorMock::simulate_cluster_constructor(database_id: 5);
         $this->assertEquals(5, $request->getDatabaseId());
     }
 
     public function testClusterDatabaseIdDefault()
     {
-        $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]]
-        );
-
+        $request = ClientConstructorMock::simulate_cluster_constructor();
         $this->assertEquals(0, $request->getDatabaseId());
     }
 
     public function testStandaloneDatabaseIdNegative()
     {
         try {
-            ClientConstructorMock::simulate_standalone_constructor(
-                addresses: [['host' => 'localhost', 'port' => 8080]],
-                database_id: -1
-            );
+            ClientConstructorMock::simulate_standalone_constructor(database_id: -1);
             $this->assertTrue(false, 'Expected ValkeyGlideException was not thrown');
         } catch (ValkeyGlideException $e) {
             $this->assertStringContains('Database ID must be non-negative', $e->getMessage());
@@ -429,10 +326,7 @@ class ConnectionRequestTest extends \TestSuite
     public function testClusterDatabaseIdNegative()
     {
         try {
-            ClientConstructorMock::simulate_cluster_constructor(
-                addresses: [['host' => 'localhost', 'port' => 8080]],
-                database_id: -1
-            );
+            ClientConstructorMock::simulate_cluster_constructor(database_id: -1);
             $this->assertTrue(false, 'Expected ValkeyGlideException was not thrown');
         } catch (ValkeyGlideException $e) {
             $this->assertStringContains('Database ID must be non-negative', $e->getMessage());
@@ -442,7 +336,6 @@ class ConnectionRequestTest extends \TestSuite
     public function testClusterPeriodicChecksDisabled()
     {
         $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
             periodic_checks: ValkeyGlideCluster::PERIODIC_CHECK_DISABLED
         );
 
@@ -453,7 +346,6 @@ class ConnectionRequestTest extends \TestSuite
     public function testClusterPeriodicChecksDefault()
     {
         $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
             periodic_checks: ValkeyGlideCluster::PERIODIC_CHECK_ENABLED_DEFAULT_CONFIGS
         );
 
@@ -463,45 +355,277 @@ class ConnectionRequestTest extends \TestSuite
 
     public function testClusterRefreshTopologyFromInitialNodesDefault()
     {
-        // Test that refresh_topology_from_initial_nodes defaults to false when not specified
-        $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]]
-        );
-
+        $request = ClientConstructorMock::simulate_cluster_constructor();
         $this->assertFalse($request->getRefreshTopologyFromInitialNodes());
     }
 
     public function testClusterRefreshTopologyFromInitialNodesEnabled()
     {
-        // Test that refresh_topology_from_initial_nodes can be set to true
         $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
             advanced_config: ['refresh_topology_from_initial_nodes' => true]
         );
-
         $this->assertTrue($request->getRefreshTopologyFromInitialNodes());
     }
 
     public function testClusterRefreshTopologyFromInitialNodesDisabled()
     {
-        // Test that refresh_topology_from_initial_nodes can be explicitly set to false
         $request = ClientConstructorMock::simulate_cluster_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
             advanced_config: ['refresh_topology_from_initial_nodes' => false]
         );
-
         $this->assertFalse($request->getRefreshTopologyFromInitialNodes());
     }
 
     public function testStandaloneRefreshTopologyFromInitialNodesIgnored()
     {
-        // Test that refresh_topology_from_initial_nodes is ignored for standalone clients
         $request = ClientConstructorMock::simulate_standalone_constructor(
-            addresses: [['host' => 'localhost', 'port' => 8080]],
             advanced_config: ['refresh_topology_from_initial_nodes' => true]
         );
-
-        // Standalone clients should always have this as false (ignored)
         $this->assertFalse($request->getRefreshTopologyFromInitialNodes());
+    }
+
+    // ================================================================
+    // Tls Tests
+    // ================================================================
+
+    // TlsMode Tests
+    // -------------
+
+    public function testTlsModeDefault()
+    {
+        $request = ClientConstructorMock::simulate_standalone_constructor();
+        $this->assertEquals(\Connection_request\TlsMode::NoTls, $request->getTlsMode());
+
+        $request = ClientConstructorMock::simulate_cluster_constructor();
+        $this->assertEquals(\Connection_request\TlsMode::NoTls, $request->getTlsMode());
+    }
+
+    public function testTlsModeUseTlsEnabled()
+    {
+        $request = ClientConstructorMock::simulate_standalone_constructor(use_tls: true);
+        $this->assertEquals(\Connection_request\TlsMode::SecureTls, $request->getTlsMode());
+
+        $request = ClientConstructorMock::simulate_cluster_constructor(use_tls: true);
+        $this->assertEquals(\Connection_request\TlsMode::SecureTls, $request->getTlsMode());
+    }
+
+    public function testTlsModeUseTlsDisabled()
+    {
+        $request = ClientConstructorMock::simulate_standalone_constructor(use_tls: false);
+        $this->assertEquals(\Connection_request\TlsMode::NoTls, $request->getTlsMode());
+
+        $request = ClientConstructorMock::simulate_cluster_constructor(use_tls: false);
+        $this->assertEquals(\Connection_request\TlsMode::NoTls, $request->getTlsMode());
+    }
+
+    public function testTlsModeStreamContext()
+    {
+        $stream_context = stream_context_create(['ssl' => ['option' => 'value']]);
+
+        $request = ClientConstructorMock::simulate_standalone_constructor(context: $stream_context);
+        $this->assertEquals(\Connection_request\TlsMode::SecureTls, $request->getTlsMode());
+
+        $request = ClientConstructorMock::simulate_cluster_constructor(context: $stream_context);
+        $this->assertEquals(\Connection_request\TlsMode::SecureTls, $request->getTlsMode());
+    }
+
+    public function testTlsModeStreamContextVerifyPeerEnabled()
+    {
+        $stream_context = stream_context_create(['ssl' => ['verify_peer' => true]]);
+
+        $request = ClientConstructorMock::simulate_cluster_constructor(context: $stream_context);
+        $this->assertEquals(\Connection_request\TlsMode::SecureTls, $request->getTlsMode());
+
+        $request = ClientConstructorMock::simulate_cluster_constructor(context: $stream_context);
+        $this->assertEquals(\Connection_request\TlsMode::SecureTls, $request->getTlsMode());
+    }
+
+    public function testTlsModeStreamContextVerifyPeerDisabled()
+    {
+        $stream_context = stream_context_create(['ssl' => ['verify_peer' => false]]);
+
+        $request = ClientConstructorMock::simulate_standalone_constructor(context: $stream_context);
+        $this->assertEquals(\Connection_request\TlsMode::InsecureTls, $request->getTlsMode());
+
+        $request = ClientConstructorMock::simulate_standalone_constructor(context: $stream_context);
+        $this->assertEquals(\Connection_request\TlsMode::InsecureTls, $request->getTlsMode());
+    }
+
+    public function testTlsModeTlsPrefix()
+    {
+        $host = 'localhost';
+        $address = ['host' => 'tls://' . $host];
+
+        $request = ClientConstructorMock::simulate_standalone_constructor([$address]);
+        $this->assertEquals(\Connection_request\TlsMode::SecureTls, $request->getTlsMode());
+        $this->assertEquals([$host], $this->get_addresses($request));
+
+        $request = ClientConstructorMock::simulate_cluster_constructor([$address]);
+        $this->assertEquals(\Connection_request\TlsMode::SecureTls, $request->getTlsMode());
+        $this->assertEquals([$host], $this->get_addresses($request));
+    }
+
+    public function testTlsModeSslPrefix()
+    {
+        $host = 'localhost';
+        $address = ['host' => 'ssl://' . $host];
+
+        $request = ClientConstructorMock::simulate_standalone_constructor([$address]);
+        $this->assertEquals(\Connection_request\TlsMode::SecureTls, $request->getTlsMode());
+        $this->assertEquals([$host], $this->get_addresses($request));
+
+        $request = ClientConstructorMock::simulate_cluster_constructor([$address]);
+        $this->assertEquals(\Connection_request\TlsMode::SecureTls, $request->getTlsMode());
+        $this->assertEquals([$host], $this->get_addresses($request));
+    }
+
+    public function testTlsModeAdvancedConfigUseInsecureTlsEnabled()
+    {
+        $advanced_config = ['tls_config' => ['use_insecure_tls' => true]];
+
+        $request = ClientConstructorMock::simulate_standalone_constructor(use_tls: true, advanced_config: $advanced_config);
+        $this->assertEquals(\Connection_request\TlsMode::InsecureTls, $request->getTlsMode());
+
+        $request = ClientConstructorMock::simulate_cluster_constructor(use_tls: true, advanced_config: $advanced_config);
+        $this->assertEquals(\Connection_request\TlsMode::InsecureTls, $request->getTlsMode());
+    }
+
+    public function testTlsModeAdvancedConfigUseInsecureTlsDisabled()
+    {
+        $advanced_config = ['tls_config' => ['use_insecure_tls' => false]];
+
+        $request = ClientConstructorMock::simulate_standalone_constructor(use_tls: true, advanced_config: $advanced_config);
+        $this->assertEquals(\Connection_request\TlsMode::SecureTls, $request->getTlsMode());
+
+        $request = ClientConstructorMock::simulate_cluster_constructor(use_tls: true, advanced_config: $advanced_config);
+        $this->assertEquals(\Connection_request\TlsMode::SecureTls, $request->getTlsMode());
+    }
+
+    public function testTlsModeAdvancedConfigUseInsecureTlsEnabledNoTls()
+    {
+        $advanced_config = ['tls_config' => ['use_insecure_tls' => true]];
+        $expected_msg = 'Cannot configure insecure TLS when TLS is disabled.';
+
+        try {
+            ClientConstructorMock::simulate_standalone_constructor(advanced_config: $advanced_config);
+            $this->assertTrue(false, 'Expected ValkeyGlideException was not thrown');
+        } catch (ValkeyGlideException $e) {
+            $this->assertEquals($expected_msg, $e->getMessage());
+        }
+
+        try {
+            ClientConstructorMock::simulate_cluster_constructor(advanced_config: $advanced_config);
+            $this->assertTrue(false, 'Expected ValkeyGlideClusterException was not thrown');
+        } catch (ValkeyGlideClusterException $e) {
+            $this->assertEquals($expected_msg, $e->getMessage());
+        }
+    }
+
+    // RootCerts Tests
+    // ---------------
+
+    private const CERTIFICATE_DATA = "CERTIFICATE_DATA";
+
+    public function testRootCertsDefault()
+    {
+        $request = ClientConstructorMock::simulate_standalone_constructor();
+        $this->assertEmpty($request->getRootCerts());
+
+        $request = ClientConstructorMock::simulate_cluster_constructor();
+        $this->assertEmpty($request->getRootCerts());
+    }
+
+    public function testRootCertsAdvancedConfig()
+    {
+        $advanced_config = ['tls_config' => ['root_certs' => self::CERTIFICATE_DATA]];
+
+        $request = ClientConstructorMock::simulate_standalone_constructor(use_tls: true, advanced_config: $advanced_config);
+
+        $root_certs = $request->getRootCerts();
+        $this->assertEquals(1, $root_certs->count());
+        $this->assertEquals(self::CERTIFICATE_DATA, $root_certs[0]);
+
+        $request = ClientConstructorMock::simulate_cluster_constructor(use_tls: true, advanced_config: $advanced_config);
+
+        $root_certs = $request->getRootCerts();
+        $this->assertEquals(1, $root_certs->count());
+        $this->assertEquals(self::CERTIFICATE_DATA, $root_certs[0]);
+    }
+
+    public function testRootCertsStreamContext()
+    {
+        $file_handle = tmpfile();
+        fwrite($file_handle, self::CERTIFICATE_DATA);
+
+        $file_path = stream_get_meta_data($file_handle)['uri'];
+        $stream_context = stream_context_create(['ssl' => ['cafile' => $file_path]]);
+
+        $request = ClientConstructorMock::simulate_standalone_constructor(use_tls: true, context: $stream_context);
+
+        $root_certs = $request->getRootCerts();
+        $this->assertEquals(1, $root_certs->count());
+        $this->assertEquals(self::CERTIFICATE_DATA, $root_certs[0]);
+
+        $request = ClientConstructorMock::simulate_cluster_constructor(use_tls: true, context: $stream_context);
+
+        $root_certs = $request->getRootCerts();
+        $this->assertEquals(1, $root_certs->count());
+        $this->assertEquals(self::CERTIFICATE_DATA, $root_certs[0]);
+
+        fclose($file_handle);
+    }
+
+    public function testRootCertStreamContextInvalidPath()
+    {
+        $stream_context = stream_context_create(['ssl' => ['cafile' => '/invalid/cert.pem']]);
+        $expected_msg = 'Failed to load root certificate from file';
+
+        try {
+            ClientConstructorMock::simulate_standalone_constructor(use_tls: true, context: $stream_context);
+            $this->assertTrue(false, 'Expected ValkeyGlideException was not thrown');
+        } catch (ValkeyGlideException $e) {
+            $this->assertStringContains($expected_msg, $e->getMessage());
+        }
+
+        try {
+            ClientConstructorMock::simulate_cluster_constructor(use_tls: true, context: $stream_context);
+            $this->assertTrue(false, 'Expected ValkeyGlideClusterException was not thrown');
+        } catch (ValkeyGlideClusterException $e) {
+            $this->assertStringContains($expected_msg, $e->getMessage());
+        }
+    }
+
+    public function testRootCertsAdvancedConfigAndStreamContext()
+    {
+        $advanced_config = ['tls_config' => []];
+        $stream_context = stream_context_create(['ssl' => ['option' => 'value']]);
+        $expected_msg = 'At most one of stream context or advanced TLS config can be specified.';
+
+        try {
+            ClientConstructorMock::simulate_standalone_constructor(advanced_config: $advanced_config, context: $stream_context);
+            $this->assertTrue(false, 'Expected ValkeyGlideException was not thrown');
+        } catch (ValkeyGlideException $e) {
+            $this->assertStringContains($expected_msg, $e->getMessage());
+        }
+
+        try {
+            ClientConstructorMock::simulate_cluster_constructor(advanced_config: $advanced_config, context: $stream_context);
+            $this->assertTrue(false, 'Expected ValkeyGlideClusterException was not thrown');
+        } catch (ValkeyGlideClusterException $e) {
+            $this->assertStringContains($expected_msg, $e->getMessage());
+        }
+    }
+
+    // Helper methods
+    // --------------
+
+    /**
+     * Returns host names from a connection request's addresses.
+     *
+     * @param \Connection_request\ConnectionRequest $request The connection request containing addresses.
+     * @return string[] Host names extracted from the request's addresses.
+     */
+    private function get_addresses(\Connection_request\ConnectionRequest $request): array
+    {
+        return array_map(fn($a) => $a->getHost(), iterator_to_array($request->getAddresses()));
     }
 }

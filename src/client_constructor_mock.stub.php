@@ -82,7 +82,7 @@ class ClientConstructorMock
     /**
      * Mock creation of a standalone connection request instance with the provided configuration.
      *
-     * @param array $addresses                   Array of server addresses [['host' => 'localhost', 'port' => 6379], ...].
+     * @param array|null $addresses              Array of server addresses [['host' => 'localhost', 'port' => 6379], ...].
      * @param bool $use_tls                      Whether to use TLS encryption.
      * @param array|null $credentials            Authentication credentials ['password' => 'xxx', 'username' => 'yyy'].
      * @param int $read_from                     Read strategy for the client.
@@ -96,9 +96,10 @@ class ClientConstructorMock
      *                                           'tls_config' => ['use_insecure_tls' => false]].
      *                                           connection_timeout is in milliseconds.
      * @param bool|null $lazy_connect            Whether to use lazy connection.
+     * @param resource|null $context             Stream context for the connection.
      */
     public static function simulate_standalone_constructor(
-        array $addresses,
+        ?array $addresses = null,
         bool $use_tls = false,
         ?array $credentials = null,
         int $read_from = ValkeyGlide::READ_FROM_PRIMARY,
@@ -108,13 +109,14 @@ class ClientConstructorMock
         ?string $client_name = null,
         ?string $client_az = null,
         ?array $advanced_config = null,
-        ?bool $lazy_connect = null
+        ?bool $lazy_connect = null,
+        mixed $context = null,
     ): \Connection_request\ConnectionRequest;
 
     /**
      * Mock creation of a cluster connection request instance with the provided configuration.
      *
-     * @param array $addresses                        Array of server addresses [['host' => '127.0.0.1', 'port' => 7001], ...].
+     * @param array|null $addresses                   Array of server addresses [['host' => '127.0.0.1', 'port' => 7001], ...].
      * @param bool $use_tls                           Whether to use TLS encryption.
      * @param array|null $credentials                 Authentication credentials ['password' => 'xxx', 'username' => 'yyy'].
      * @param int $read_from                          Read strategy for the client.
@@ -132,9 +134,10 @@ class ClientConstructorMock
      *                                                and within the range supported by the server configuration.
      *                                                For cluster mode, requires Valkey 9.0+ with cluster-databases > 1.
      *                                                If not specified, defaults to database 0.
+     * @param resource|null $context                     Stream context for the connection.
      */
     public static function simulate_cluster_constructor(
-        array $addresses,
+        ?array $addresses = null,
         bool $use_tls = false,
         ?array $credentials = null,
         int $read_from = ValkeyGlide::READ_FROM_PREFER_REPLICA,
@@ -145,6 +148,7 @@ class ClientConstructorMock
         ?string $client_az = null,
         ?array $advanced_config = null,
         ?bool $lazy_connect = null,
-        ?int $database_id = null
+        ?int $database_id = null,
+        mixed $context = null,
     ): \Connection_request\ConnectionRequest;
 }

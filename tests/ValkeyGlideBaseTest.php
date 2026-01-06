@@ -102,6 +102,10 @@ abstract class ValkeyGlideBaseTest extends TestSuite
         'Cupertino'     => [-122.032182, 37.322998]
     ];
 
+    protected const TLS_ADDRESS_STANDALONE = ['host' => 'localhost', 'port' => 6400];
+    protected const TLS_ADDRESS_CLUSTER    = ['host' => 'localhost', 'port' => 8001];
+    protected const TLS_CERTIFICATE_PATH   = __DIR__ . '/../valkey-glide/utils/tls_crts/ca.crt';
+
     protected function getNilValue()
     {
         return false;
@@ -207,24 +211,23 @@ abstract class ValkeyGlideBaseTest extends TestSuite
 
     protected function newInstance()
     {
-        if (!$this->getTLS()) {
-            $r = new ValkeyGlide([[
-                'host' => $this->getHost(),
-                'port' => $this->getPort(),
-            ]]);
-        } else {
-            $advancedConfig = [
-                'tls_config' => ['use_insecure_tls' => true]
-            ];
-            $r = new ValkeyGlide(addresses: [[
-                'host' => $this->getHost(),
-                'port' => $this->getPort(),
-            ]], use_tls: true, advanced_config: $advancedConfig);
+        $args = ['addresses' => [[
+            'host' => $this->getHost(),
+            'port' => $this->getPort()
+        ]]];
+
+        // Add TLS arguments
+        if ($this->getTLS()) {
+            $args['use_tls'] = true;
+            $args['advanced_config'] = ['tls_config' => ['use_insecure_tls' => true]];
         }
+
+        $r = new ValkeyGlide(...$args);
 
         if ($this->getAuth()) {
             $this->assertTrue($r->auth($this->getAuth()));
         }
+
         return $r;
     }
 
@@ -250,5 +253,15 @@ abstract class ValkeyGlideBaseTest extends TestSuite
     protected function haveMulti()
     {
         return defined(get_class($this->valkey_glide) . '::MULTI');
+    }
+
+    protected function assertConnected(ValkeyGlide|ValkeyGlideCluster $client)
+    {
+        $result =
+            $client instanceof ValkeyGlideCluster
+            ? $client->ping('allPrimaries')
+            : $client->ping();
+
+        $this->assertTrue($result, "Client should be connected");
     }
 }
