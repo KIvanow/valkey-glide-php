@@ -123,7 +123,7 @@ export PATH="$PATH:$HOME/.local/bin"
 protoc --version
 ```
 
-#### Installing from Packagist
+### Installing from Packagist
 
 You can use pie to install the extension from the Packagist repository.
 See: <https://packagist.org/packages/valkey-io/valkey-glide-php>
@@ -155,7 +155,7 @@ export VERSION=1.0.0
 pie install valkey-io/valkey-glide-php:$VERSION
 ```
 
-#### Installing from PECL
+### Installing from PECL
 
 You can install the extension using PECL from GitHub releases:
 

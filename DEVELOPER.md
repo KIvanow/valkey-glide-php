@@ -2,7 +2,7 @@
 
 This document describes how to set up your development environment to build and test the Valkey GLIDE PHP wrapper.
 
-### Development Overview
+## Development Overview
 
 The Valkey GLIDE PHP wrapper is implemented as a PHP extension written in C that interfaces with the Rust-based Glide core library. The PHP extension communicates with the core using:
 
@@ -32,22 +32,27 @@ Software Dependencies
 - rustup
 - ziglang and zigbuild (for GNU Linux only)
 - valkey (for testing)
+- clang-format 18.x (for C linting)
+- markdownlint-cli 0.44.x (for markdown linting)
 
-**Valkey installation**
+### Valkey installation
 
 See the [Valkey installation guide](https://valkey.io/topics/installation/) to install the Valkey server and CLI.
 
-**Dependencies installation for Ubuntu**
+### Dependencies installation for Ubuntu
 
 ```bash
 sudo apt update -y
 sudo apt install -y php-dev php-cli git gcc make autotools-dev libtool pkg-config openssl libssl-dev unzip libprotobuf-c-dev libprotobuf-c1
 
 # Install clang-format-18 and ensure clang-format points to it.
-sudo apt install -y clang-format-18
+sudo apt install -y clang-format-18 nodejs npm
 sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100
 clang-format --version  # Version 18.x
 
+# Install markdownlint-cli
+npm install -g markdownlint-cli@0.44.0
+
 # Install rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source "$HOME/.cargo/env"
@@ -57,11 +62,15 @@ rustc --version
 
 Continue with **Install protobuf compiler** and **Install `ziglang` and `zigbuild`** below.
 
-**Dependencies installation for CentOS**
+### Dependencies installation for CentOS
 
 ```bash
 sudo yum update -y
-sudo yum install -y php-devel php-cli git gcc make autoconf automake libtool pkgconfig openssl openssl-devel unzip php-bcmath
+sudo yum install -y php-devel php-cli git gcc make autoconf automake libtool pkgconfig openssl openssl-devel unzip php-bcmath nodejs npm
+
+# Install markdownlint-cli
+npm install -g markdownlint-cli@0.44.0
+
 # Install rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source "$HOME/.cargo/env"
@@ -71,11 +80,11 @@ rustc --version
 
 Continue with **Install protobuf compiler** and **Install `ziglang` and `zigbuild`** below.
 
-**Dependencies installation for MacOS**
+### Dependencies installation for MacOS
 
 ```bash
 brew update
-brew install php@8.3 git gcc make autoconf automake libtool pkgconfig protobuf openssl protobuf-c composer
+brew install php@8.3 git gcc make autoconf automake libtool pkgconfig protobuf openssl protobuf-c composer node
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source "$HOME/.cargo/env"
 # Check that the Rust compiler is installed
@@ -86,9 +95,12 @@ brew install llvm@18
 echo 'export PATH="/opt/homebrew/opt/llvm@18/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 clang-format --version  # Should show version 18.x
+
+# Install markdownlint-cli
+npm install -g markdownlint-cli@0.44.0
 ```
 
-**Install protobuf compiler**
+### Install protobuf compiler
 
 To install protobuf for MacOS, run:
 
@@ -114,7 +126,7 @@ export PATH="$PATH:$HOME/.local/bin"
 protoc --version
 ```
 
-**Install `ziglang` and `zigbuild`**
+### Install `ziglang` and `zigbuild`
 
 ```bash
 pip3 install ziglang
@@ -122,14 +134,16 @@ cargo install --locked cargo-zigbuild
 ```
 
 #### Installing from Packagist
+
 You can use pie to install the extension from the Packagist repository.
-See: https://packagist.org/packages/valkey-io/valkey-glide-php
+See: <https://packagist.org/packages/valkey-io/valkey-glide-php>
 
 Before starting this step, make sure you've installed all dependencies above.
 
 Additionally, you will need to install the pie tool.
 
 On Linux, you can download pie with curl. eg:
+
 ```bash
 curl -L https://github.com/php/pie/releases/latest/download/pie.phar -o pie
 chmod +x pie
@@ -138,11 +152,13 @@ export PATH="$PATH:/usr/local/bin"
 ```
 
 On MacOS, install with Homebrew:
+
 ```bash
 brew install pie
 ```
 
 To install the Valkey Glide extension, simply use the pie command:
+
 ```bash
 # VERSION can be set to any release tag or branch at https://github.com/valkey-io/valkey-glide-php.git
 export VERSION=1.0.0
@@ -150,6 +166,7 @@ pie install valkey-io/valkey-glide-php:$VERSION
 ```
 
 #### Installing from PECL
+
 You can install the extension using PECL from GitHub releases:
 
 ```bash
@@ -162,11 +179,13 @@ pecl install valkey_glide-1.0.0.tgz
 ```
 
 After installation, add the extension to your php.ini:
+
 ```ini
 extension=valkey_glide
 ```
 
 Verify the installation:
+
 ```bash
 php -m | grep valkey_glide
 php -r "if (extension_loaded('valkey_glide')) echo 'SUCCESS: Extension loaded!'; else echo 'ERROR: Extension not loaded';"
@@ -278,6 +297,7 @@ Development on the PHP wrapper involves changes in both C and PHP code. We have 
 - `clang-format` - C code formatting with Google-based style. Configured by `.clang-format`.
 - `phpcs` (PHP_CodeSniffer) - enforces PHP code standards. Configured by `phpcs.xml`.
 - `phpcbf` (PHP Code Beautifier and Fixer) - corrects PHP code standards. Configured by `phpcs.xml`.
+- `markdownlint` - enforces Markdown formatting and style standards. Configured by `.markdownlint.json`.
 
 #### Running Linters
 
@@ -293,6 +313,10 @@ Development on the PHP wrapper involves changes in both C and PHP code. We have 
 # PHP code only
 ./lint-php.sh        # Check
 ./lint-php.sh --fix  # Fix
+
+# Markdown only
+./lint-md.sh         # Check
+./lint-md.sh --fix   # Fix
 ```
 
 #### Git Hooks

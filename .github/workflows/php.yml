@@ -843,6 +843,9 @@ jobs:
           sudo apt-get install -y clang-format-18
           sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100
 
+          # Install markdownlint-cli for markdown linting.
+          npm install -g markdownlint-cli@0.44.0
+
       - name: Install protoc
         uses: ./.github/workflows/install-rust-and-protoc
         with:

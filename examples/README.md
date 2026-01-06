@@ -13,6 +13,7 @@ Before running these examples, ensure you have:
 ## Quick Start
 
 1. **Start Valkey servers using Docker:**
+
    ```bash
    cd examples/utils
    ./create-valkey-cluster.sh
@@ -20,6 +21,7 @@ Before running these examples, ensure you have:
    ```
 
 2. **Run a basic example:**
+
    ```bash
    php basic/standalone_client.php
    ```
@@ -27,18 +29,19 @@ Before running these examples, ensure you have:
 ## Directory Structure
 
 ### 📚 Basic Examples (`basic/`)
+
 - **`standalone_client.php`** - Basic standalone server connection
 - **`cluster_client.php`** - Basic cluster connection setup
 - **`configuration.php`** - Client configuration options
 
 ### 🎯 Real-world Patterns (`patterns/`)
+
 - **`caching.php`** - Web application caching patterns
-
-
 
 ## Running Examples
 
 ### Individual Examples
+
 ```bash
 # Run specific example
 php basic/standalone_client.php
