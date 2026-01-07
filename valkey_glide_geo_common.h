@@ -44,28 +44,28 @@ typedef struct _geo_radius_options_t {
     const char*        sort;       /* Sort order (ASC/DESC) */
     size_t             sort_len;   /* Sort order string length */
     long               count;      /* COUNT option */
-    geo_with_options_t with_opts;  /* WITH* options */
     int                any;        /* ANY flag for COUNT option */
     int                store_dist; /* STOREDIST option (for GEOSEARCHSTORE) */
+    geo_with_options_t with_opts;  /* WITH* options */
 } geo_radius_options_t;
 
 /**
  * Unified parameters structure for GEOSEARCH/GEOSEARCHSTORE commands
  */
 typedef struct _geo_search_params_t {
-    const char*          key;     /* Source key (GEOSEARCH) or destination key (GEOSEARCHSTORE) */
-    const char*          src_key; /* Source key (GEOSEARCHSTORE only) */
-    const char*          member;  /* Member name for FROMMEMBER */
-    const char*          unit;    /* Unit (m, km, ft, mi) */
-    size_t               key_len;
-    size_t               src_key_len;
-    size_t               member_len;
-    size_t               unit_len;
+    const char*          key;       /* Source key (GEOSEARCH) or destination key (GEOSEARCHSTORE) */
+    const char*          src_key;   /* Source key (GEOSEARCHSTORE only) */
+    const char*          member;    /* Member name for FROMMEMBER */
+    const char*          unit;      /* Unit (m, km, ft, mi) */
     double               longitude; /* Longitude for FROMLONLAT */
     double               latitude;  /* Latitude for FROMLONLAT */
     double               radius;    /* Radius for BYRADIUS */
     double               width;     /* Width for BYBOX */
     double               height;    /* Height for BYBOX */
+    size_t               key_len;
+    size_t               src_key_len;
+    size_t               member_len;
+    size_t               unit_len;
     geo_radius_options_t options;
     int                  is_from_member; /* 1 if using member, 0 if using coordinates */
     int                  is_by_radius;   /* 1 if using radius, 0 if using box */
@@ -88,15 +88,15 @@ typedef struct _geo_command_args_t {
     const char*          dest;           /* Destination key */
     const char*          src;            /* Source key */
     zval*                options;        /* Options array or NULL */
+    double               longitude;      /* Longitude for center point */
+    double               latitude;       /* Latitude for center point */
+    double               radius;         /* Radius for search */
     size_t               key_len;        /* Key argument length */
     size_t               src_member_len; /* Source member length */
     size_t               dst_member_len; /* Destination member length */
     size_t               unit_len;       /* Unit string length */
     size_t               dest_len;       /* Destination key length */
     size_t               src_len;        /* Source key length */
-    double               longitude;      /* Longitude for center point */
-    double               latitude;       /* Latitude for center point */
-    double               radius;         /* Radius for search */
     geo_radius_options_t radius_opts;    /* Parsed radius options */
     int                  member_count;   /* Number of members */
     int                  geo_args_count; /* Number of arguments in geo_args */

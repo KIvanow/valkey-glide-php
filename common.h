@@ -227,9 +227,7 @@ struct batch_command {
 };
 
 typedef struct {
-    const void* glide_client; /* Valkey Glide client pointer */
-
-    /* Batch mode tracking */
+    const void*           glide_client; /* Valkey Glide client pointer */
     struct batch_command* buffered_commands;
     size_t                command_count;
     size_t                command_capacity;
