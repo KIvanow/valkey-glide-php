@@ -67,7 +67,7 @@ PHP_METHOD(ValkeyGlideCluster, __construct) {
     if (!common_params.database_id_is_null && common_params.database_id < 0) {
         const char* error_message = "Database ID must be non-negative.";
         VALKEY_LOG_ERROR("cluster_construct", error_message);
-        zend_throw_exception(get_valkey_glide_cluster_exception_ce(), error_message, 0);
+        zend_throw_exception(get_valkey_glide_exception_ce(), error_message, 0);
         return;
     }
 
@@ -101,7 +101,7 @@ PHP_METHOD(ValkeyGlideCluster, __construct) {
     if (conn_resp->connection_error_message) {
         VALKEY_LOG_ERROR("cluster_construct", conn_resp->connection_error_message);
         zend_throw_exception(
-            get_valkey_glide_cluster_exception_ce(), conn_resp->connection_error_message, 0);
+            get_valkey_glide_exception_ce(), conn_resp->connection_error_message, 0);
     } else {
         VALKEY_LOG_INFO("cluster_construct", "ValkeyGlide cluster client created successfully");
         valkey_glide->glide_client = conn_resp->conn_ptr;
@@ -696,7 +696,7 @@ PHP_METHOD(ValkeyGlideCluster, subscribe) {
     valkey_glide_object* valkey_glide =
         VALKEY_GLIDE_PHP_ZVAL_GET_OBJECT(valkey_glide_object, getThis());
     if (!valkey_glide->glide_client) {
-        zend_throw_exception(zend_ce_exception, "Client not connected", 0);
+        zend_throw_exception(get_valkey_glide_exception_ce(), "Client not connected", 0);
         RETURN_FALSE;
     }
     valkey_glide_subscribe_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, valkey_glide->glide_client);
@@ -708,7 +708,7 @@ PHP_METHOD(ValkeyGlideCluster, psubscribe) {
     valkey_glide_object* valkey_glide =
         VALKEY_GLIDE_PHP_ZVAL_GET_OBJECT(valkey_glide_object, getThis());
     if (!valkey_glide->glide_client) {
-        zend_throw_exception(zend_ce_exception, "Client not connected", 0);
+        zend_throw_exception(get_valkey_glide_exception_ce(), "Client not connected", 0);
         RETURN_FALSE;
     }
     valkey_glide_psubscribe_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, valkey_glide->glide_client);
@@ -720,7 +720,7 @@ PHP_METHOD(ValkeyGlideCluster, unsubscribe) {
     valkey_glide_object* valkey_glide =
         VALKEY_GLIDE_PHP_ZVAL_GET_OBJECT(valkey_glide_object, getThis());
     if (!valkey_glide->glide_client) {
-        zend_throw_exception(zend_ce_exception, "Client not connected", 0);
+        zend_throw_exception(get_valkey_glide_exception_ce(), "Client not connected", 0);
         RETURN_FALSE;
     }
     valkey_glide_unsubscribe_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, valkey_glide->glide_client);
@@ -732,7 +732,7 @@ PHP_METHOD(ValkeyGlideCluster, punsubscribe) {
     valkey_glide_object* valkey_glide =
         VALKEY_GLIDE_PHP_ZVAL_GET_OBJECT(valkey_glide_object, getThis());
     if (!valkey_glide->glide_client) {
-        zend_throw_exception(zend_ce_exception, "Client not connected", 0);
+        zend_throw_exception(get_valkey_glide_exception_ce(), "Client not connected", 0);
         RETURN_FALSE;
     }
     valkey_glide_punsubscribe_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, valkey_glide->glide_client);
@@ -817,7 +817,7 @@ PHP_METHOD(ValkeyGlideCluster, publish) {
     valkey_glide_object* valkey_glide =
         VALKEY_GLIDE_PHP_ZVAL_GET_OBJECT(valkey_glide_object, getThis());
     if (!valkey_glide->glide_client) {
-        zend_throw_exception(zend_ce_exception, "Client not connected", 0);
+        zend_throw_exception(get_valkey_glide_exception_ce(), "Client not connected", 0);
         RETURN_FALSE;
     }
     valkey_glide_publish_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, valkey_glide->glide_client);
@@ -829,7 +829,7 @@ PHP_METHOD(ValkeyGlideCluster, pubsub) {
     valkey_glide_object* valkey_glide =
         VALKEY_GLIDE_PHP_ZVAL_GET_OBJECT(valkey_glide_object, getThis());
     if (!valkey_glide->glide_client) {
-        zend_throw_exception(zend_ce_exception, "Client not connected", 0);
+        zend_throw_exception(get_valkey_glide_exception_ce(), "Client not connected", 0);
         RETURN_FALSE;
     }
     valkey_glide_pubsub_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, valkey_glide->glide_client);

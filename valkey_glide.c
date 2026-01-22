@@ -74,7 +74,6 @@ zend_class_entry* valkey_glide_ce;
 zend_class_entry* valkey_glide_exception_ce;
 
 zend_class_entry* valkey_glide_cluster_ce;
-zend_class_entry* valkey_glide_cluster_exception_ce;
 
 /* Handlers for ValkeyGlideCluster */
 zend_object_handlers valkey_glide_cluster_object_handlers;
@@ -92,9 +91,6 @@ zend_class_entry* get_valkey_glide_cluster_ce(void) {
     return valkey_glide_cluster_ce;
 }
 
-zend_class_entry* get_valkey_glide_cluster_exception_ce(void) {
-    return valkey_glide_cluster_exception_ce;
-}
 void free_valkey_glide_object(zend_object* object);
 void free_valkey_glide_cluster_object(zend_object* object);
 PHP_METHOD(ValkeyGlide, __construct);
@@ -270,7 +266,7 @@ void valkey_glide_build_client_config_base(valkey_glide_php_common_constructor_p
             const char* error_message =
                 "Invalid address format. Expected array with 'host' and 'port' keys.";
             VALKEY_LOG_ERROR("php_construct", error_message);
-            zend_throw_exception(get_exception_ce_for_client_type(is_cluster), error_message, 0);
+            zend_throw_exception(get_valkey_glide_exception_ce(), error_message, 0);
             valkey_glide_cleanup_client_config(config);
             return;
         }
@@ -366,9 +362,8 @@ void valkey_glide_build_client_config_base(valkey_glide_php_common_constructor_p
 
             /* Validate that username is provided for IAM */
             if (!config->credentials->username) {
-                zend_throw_exception(get_exception_ce_for_client_type(is_cluster),
-                                     "IAM authentication requires a username",
-                                     0);
+                zend_throw_exception(
+                    get_valkey_glide_exception_ce(), "IAM authentication requires a username", 0);
             }
         }
     } else {
@@ -429,7 +424,7 @@ void valkey_glide_build_client_config_base(valkey_glide_php_common_constructor_p
         config->advanced_config->tls_config->use_insecure_tls) {
         VALKEY_LOG_ERROR("insecure_tls_with_tls_disabled",
                          "Cannot configure insecure TLS when TLS is disabled.");
-        zend_throw_exception(get_exception_ce_for_client_type(is_cluster),
+        zend_throw_exception(get_valkey_glide_exception_ce(),
                              "Cannot configure insecure TLS when TLS is disabled.",
                              0);
     }
@@ -474,14 +469,6 @@ PHP_MINIT_FUNCTION(valkey_glide) {
     valkey_glide_exception_ce = register_class_ValkeyGlideException(spl_ce_RuntimeException);
     if (!valkey_glide_exception_ce) {
         php_error_docref(NULL, E_ERROR, "Failed to register ValkeyGlideException class");
-        return FAILURE;
-    }
-
-    /* ValkeyGlideClusterException class */
-    valkey_glide_cluster_exception_ce =
-        register_class_ValkeyGlideClusterException(spl_ce_RuntimeException);
-    if (!valkey_glide_cluster_exception_ce) {
-        php_error_docref(NULL, E_ERROR, "Failed to register ValkeyGlideClusterException class");
         return FAILURE;
     }
 
@@ -612,7 +599,7 @@ PHP_METHOD(ValkeyGlide, __construct) {
         if (common_params.database_id < 0) {
             const char* error_message = "Database ID must be non-negative.";
             VALKEY_LOG_ERROR("php_construct", error_message);
-            zend_throw_exception(valkey_glide_exception_ce, error_message, 0);
+            zend_throw_exception(get_valkey_glide_exception_ce(), error_message, 0);
             return;
         }
     }
@@ -622,7 +609,7 @@ PHP_METHOD(ValkeyGlide, __construct) {
         zend_hash_num_elements(Z_ARRVAL_P(common_params.addresses)) == 0) {
         const char* error_message = "Addresses array cannot be empty";
         VALKEY_LOG_ERROR("php_construct", error_message);
-        zend_throw_exception(valkey_glide_exception_ce, error_message, 0);
+        zend_throw_exception(get_valkey_glide_exception_ce(), error_message, 0);
         return;
     }
 
@@ -638,7 +625,8 @@ PHP_METHOD(ValkeyGlide, __construct) {
 
     if (conn_resp->connection_error_message) {
         VALKEY_LOG_ERROR("php_construct", conn_resp->connection_error_message);
-        zend_throw_exception(valkey_glide_exception_ce, conn_resp->connection_error_message, 0);
+        zend_throw_exception(
+            get_valkey_glide_exception_ce(), conn_resp->connection_error_message, 0);
     } else {
         VALKEY_LOG_INFO("php_construct", "ValkeyGlide client created successfully");
         valkey_glide->glide_client = conn_resp->conn_ptr;
@@ -708,7 +696,7 @@ PHP_METHOD(ValkeyGlide, subscribe) {
     valkey_glide_object* valkey_glide =
         VALKEY_GLIDE_PHP_ZVAL_GET_OBJECT(valkey_glide_object, getThis());
     if (!valkey_glide->glide_client) {
-        zend_throw_exception(zend_ce_exception, "Client not connected", 0);
+        zend_throw_exception(get_valkey_glide_exception_ce(), "Client not connected", 0);
         RETURN_FALSE;
     }
     valkey_glide_subscribe_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, valkey_glide->glide_client);
@@ -718,7 +706,7 @@ PHP_METHOD(ValkeyGlide, psubscribe) {
     valkey_glide_object* valkey_glide =
         VALKEY_GLIDE_PHP_ZVAL_GET_OBJECT(valkey_glide_object, getThis());
     if (!valkey_glide->glide_client) {
-        zend_throw_exception(zend_ce_exception, "Client not connected", 0);
+        zend_throw_exception(get_valkey_glide_exception_ce(), "Client not connected", 0);
         RETURN_FALSE;
     }
     valkey_glide_psubscribe_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, valkey_glide->glide_client);
@@ -728,7 +716,7 @@ PHP_METHOD(ValkeyGlide, unsubscribe) {
     valkey_glide_object* valkey_glide =
         VALKEY_GLIDE_PHP_ZVAL_GET_OBJECT(valkey_glide_object, getThis());
     if (!valkey_glide->glide_client) {
-        zend_throw_exception(zend_ce_exception, "Client not connected", 0);
+        zend_throw_exception(get_valkey_glide_exception_ce(), "Client not connected", 0);
         RETURN_FALSE;
     }
     valkey_glide_unsubscribe_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, valkey_glide->glide_client);
@@ -738,7 +726,7 @@ PHP_METHOD(ValkeyGlide, punsubscribe) {
     valkey_glide_object* valkey_glide =
         VALKEY_GLIDE_PHP_ZVAL_GET_OBJECT(valkey_glide_object, getThis());
     if (!valkey_glide->glide_client) {
-        zend_throw_exception(zend_ce_exception, "Client not connected", 0);
+        zend_throw_exception(get_valkey_glide_exception_ce(), "Client not connected", 0);
         RETURN_FALSE;
     }
     valkey_glide_punsubscribe_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, valkey_glide->glide_client);
@@ -749,7 +737,7 @@ PHP_METHOD(ValkeyGlide, publish) {
     valkey_glide_object* valkey_glide =
         VALKEY_GLIDE_PHP_ZVAL_GET_OBJECT(valkey_glide_object, getThis());
     if (!valkey_glide->glide_client) {
-        zend_throw_exception(zend_ce_exception, "Client not connected", 0);
+        zend_throw_exception(get_valkey_glide_exception_ce(), "Client not connected", 0);
         RETURN_FALSE;
     }
     valkey_glide_publish_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, valkey_glide->glide_client);
@@ -759,7 +747,7 @@ PHP_METHOD(ValkeyGlide, pubsub) {
     valkey_glide_object* valkey_glide =
         VALKEY_GLIDE_PHP_ZVAL_GET_OBJECT(valkey_glide_object, getThis());
     if (!valkey_glide->glide_client) {
-        zend_throw_exception(zend_ce_exception, "Client not connected", 0);
+        zend_throw_exception(get_valkey_glide_exception_ce(), "Client not connected", 0);
         RETURN_FALSE;
     }
     valkey_glide_pubsub_impl(INTERNAL_FUNCTION_PARAM_PASSTHRU, valkey_glide->glide_client);
@@ -1167,7 +1155,7 @@ static valkey_glide_tls_advanced_configuration_t* _build_advanced_tls_config(
         const char* error_msg =
             "At most one of stream context or advanced TLS config can be specified.";
         VALKEY_LOG_ERROR("tls_config_conflict", error_msg);
-        zend_throw_exception(get_exception_ce_for_client_type(is_cluster), error_msg, 0);
+        zend_throw_exception(get_valkey_glide_exception_ce(), error_msg, 0);
     }
 
     // Set TLS configuration from stream context.
@@ -1194,8 +1182,7 @@ static valkey_glide_tls_advanced_configuration_t* _build_advanced_tls_config(
             } else {
                 const char* error_message = "Failed to load root certificate from file";
                 VALKEY_LOG_ERROR("tls_config_cafile", error_message);
-                zend_throw_exception(
-                    get_exception_ce_for_client_type(is_cluster), error_message, 0);
+                zend_throw_exception(get_valkey_glide_exception_ce(), error_message, 0);
             }
         }
     }
@@ -1267,7 +1254,7 @@ static void _initialize_open_telemetry(valkey_glide_php_common_constructor_param
     if (Z_TYPE_P(otel_config_val) != IS_NULL && Z_TYPE_P(otel_config_val) != IS_OBJECT) {
         VALKEY_LOG_ERROR("otel_config",
                          "OpenTelemetry configuration must be an OpenTelemetryConfig object");
-        zend_throw_exception(get_exception_ce_for_client_type(is_cluster),
+        zend_throw_exception(get_valkey_glide_exception_ce(),
                              "OpenTelemetry configuration must be an OpenTelemetryConfig object",
                              0);
         return;
@@ -1279,7 +1266,7 @@ static void _initialize_open_telemetry(valkey_glide_php_common_constructor_param
         VALKEY_LOG_ERROR("otel_config", "Failed to initialize OTEL");
         /* Exception already thrown by valkey_glide_otel_init if validation failed */
         zend_throw_exception(
-            get_exception_ce_for_client_type(is_cluster), "Failed to initialize OpenTelemetry", 0);
+            get_valkey_glide_exception_ce(), "Failed to initialize OpenTelemetry", 0);
     }
 
     return;
