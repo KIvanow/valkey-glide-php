@@ -13,11 +13,11 @@ ini_set('display_errors', 1);
 
 // Check if extension is loaded
 if (!extension_loaded('valkey_glide')) {
-    echo "❌ Valkey GLIDE extension is not loaded!\n";
+    echo "Valkey GLIDE extension is not loaded!\n";
     exit(1);
 }
 
-echo "🚀 Valkey GLIDE PHP - Caching Patterns Example\n";
+echo " Valkey GLIDE PHP - Caching Patterns Example\n";
 echo "=============================================\n\n";
 
 // Configuration
@@ -91,11 +91,11 @@ class CacheManager
         // Try to get from cache first
         $cached = $this->client->get($key);
         if ($cached !== null) {
-            echo "    ✅ Cache HIT for key: {$key}\n";
+            echo "    Cache HIT for key: {$key}\n";
             return json_decode($cached, true);
         }
 
-        echo "    ❌ Cache MISS for key: {$key}\n";
+        echo "    Cache MISS for key: {$key}\n";
 
         // If callback provided, execute it and cache the result
         if ($callback && is_callable($callback)) {
@@ -133,8 +133,9 @@ class CacheManager
 
 $client = null;
 try {
-    $client = new ValkeyGlide($addresses, false, null, 0, 5000);
-    echo "✅ Connected to Valkey server\n\n";
+    $client = new ValkeyGlide();
+    $client->connect(addresses: $addresses, use_tls: false, request_timeout: 5000);
+    echo "Connected to Valkey server\n\n";
 
     // Initialize our components
     $database = new MockDatabase();
@@ -176,7 +177,7 @@ try {
             // Then update cache
             $updatedUser = $database->getUser($userId);
             $cache->set($cacheKey, $updatedUser);
-            echo "   ✅ Write-through completed for user {$userId}\n";
+            echo "   Write-through completed for user {$userId}\n";
             return $updatedUser;
         }
 
@@ -218,7 +219,7 @@ try {
         $user = $cache->get($shortTermKey);
 
         if ($user !== null) {
-            echo "   🚀 L1 Cache HIT (short-term)\n";
+            echo "    L1 Cache HIT (short-term)\n";
             return $user;
         }
 
@@ -227,7 +228,7 @@ try {
         $user = $cache->get($longTermKey);
 
         if ($user !== null) {
-            echo "   🔄 L2 Cache HIT (long-term) - promoting to L1\n";
+            echo "    L2 Cache HIT (long-term) - promoting to L1\n";
             $cache->set($shortTermKey, $user, 30); // Promote to L1
             return $user;
         }
@@ -343,16 +344,16 @@ try {
     $lazyUser = getLazyWarmed($cache, $database, 1);
     echo "   Retrieved user: {$lazyUser['name']}\n\n";
 } catch (Exception $e) {
-    echo "❌ Error: " . $e->getMessage() . "\n";
+    echo "Error: " . $e->getMessage() . "\n";
     exit(1);
 } finally {
     if ($client) {
         $client->close();
-        echo "🔌 Connection closed.\n";
+        echo " Connection closed.\n";
     }
 }
 
-echo "\n📚 Caching Best Practices Summary:\n";
+echo "\n Caching Best Practices Summary:\n";
 echo "---------------------------------\n";
 echo "• Use cache-aside for read-heavy workloads\n";
 echo "• Implement write-through for consistency requirements\n";

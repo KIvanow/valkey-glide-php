@@ -244,9 +244,8 @@ php -r "if (extension_loaded('valkey_glide')) echo 'SUCCESS: Extension loaded!';
 
 ```php
 // Create ValkeyGlide client
-$client = new ValkeyGlide(
-    addresses: [['host' => 'localhost', 'port' => 6379]]
-);
+$client = new ValkeyGlide();
+$client->connect(addresses: [['host' => 'localhost', 'port' => 6379]]);
 
 // Basic operations
 $setResult = $client->set('foo', 'bar');
@@ -266,14 +265,15 @@ $client->close();
 
 For easier migration from PHPRedis, you can use PHPRedis-compatible class names:
 
+**Standalone:**
+
 ```php
 // Load the PHPRedis compatibility aliases
 require_once 'vendor/valkey-io/valkey-glide-php/phpredis_aliases.php';
 
 // Now you can use Redis instead of ValkeyGlide
-$client = new Redis(
-    addresses: [['host' => 'localhost', 'port' => 6379]]
-);
+$client = new Redis();
+$client->connect(addresses: [['host' => 'localhost', 'port' => 6379]]);
 
 $client->set('foo', 'bar');
 $value = $client->get('foo');
@@ -288,6 +288,26 @@ try {
 $client->close();
 ```
 
+**Cluster:**
+
+```php
+// Load the PHPRedis compatibility aliases
+require_once 'vendor/valkey-io/valkey-glide-php/phpredis_aliases.php';
+
+// Now you can use RedisCluster instead of ValkeyGlideCluster
+$cluster = new RedisCluster(
+    addresses: [
+        ['host' => 'localhost', 'port' => 7001],
+        ['host' => 'localhost', 'port' => 7002]
+    ]
+);
+
+$cluster->set('foo', 'bar');
+$value = $cluster->get('foo');
+
+$cluster->close();
+```
+
 **Requirements:**
 
 - PHP 8.3 or higher (required for `class_alias()` support with internal classes)
@@ -296,7 +316,8 @@ $client->close();
 
 ```php
 // Create ValkeyGlide client with IAM authentication.
-$client = new ValkeyGlide(
+$client = new ValkeyGlide();
+$client->connect(
     addresses: [['host' => 'my-cluster.xxxxx.use1.cache.amazonaws.com', 'port' => 6379]],
     use_tls: true,  // REQUIRED for IAM authentication
     credentials: [
@@ -322,14 +343,16 @@ $client->close();
 
 ```php
 // Create ValkeyGlide client with TLS configuration
-$client = new ValkeyGlide(
+$client = new ValkeyGlide();
+$client->connect(
     addresses: [['host' => 'localhost', 'port' => 6379]],
-    use_tls: true
+    use_tls: true,
     advanced_config: ['tls_config' => ['root_certs' => $root_certs_data]]
 );
 
 // Create ValkeyGlide client with TLS stream context
-$client = new ValkeyGlide(
+$client = new ValkeyGlide();
+$client->connect(
     addresses: [['host' => 'localhost', 'port' => 6379]],
     context: stream_context_create(['ssl' => 'ca-cert.pem'])   
 )

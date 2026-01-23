@@ -7867,7 +7867,8 @@ if (extension_loaded("valkey_glide") || dl("' . __DIR__ . '/../modules/valkey_gl
     public function testRefreshTopologyFromInitialNodesIgnoredInStandalone()
     {
         // Test that refresh_topology_from_initial_nodes is ignored for standalone clients
-        $client = new ValkeyGlide(
+        $client = new ValkeyGlide();
+        $client->connect(
             addresses: [['host' => 'localhost', 'port' => 6379]],
             use_tls: false,
             credentials: null,
@@ -7893,7 +7894,8 @@ if (extension_loaded("valkey_glide") || dl("' . __DIR__ . '/../modules/valkey_gl
 
     public function testTlsSecureStream()
     {
-        $client = new ValkeyGlide(
+        $client = new ValkeyGlide();
+        $client->connect(
             addresses: [self::TLS_ADDRESS_STANDALONE],
             advanced_config: ['connection_timeout' => 5000], # Allow longer timeout for TLS connection
             context: stream_context_create(['ssl' => ['cafile' => self::TLS_CERTIFICATE_PATH]])
@@ -7904,7 +7906,8 @@ if (extension_loaded("valkey_glide") || dl("' . __DIR__ . '/../modules/valkey_gl
 
     public function testTlsSecureConfig()
     {
-        $client = new ValkeyGlide(
+        $client = new ValkeyGlide();
+        $client->connect(
             addresses: [self::TLS_ADDRESS_STANDALONE],
             use_tls: true,
             advanced_config: [
@@ -7918,7 +7921,8 @@ if (extension_loaded("valkey_glide") || dl("' . __DIR__ . '/../modules/valkey_gl
 
     public function testTlsInsecureStream()
     {
-        $client = new ValkeyGlide(
+        $client = new ValkeyGlide();
+        $client->connect(
             addresses: [self::TLS_ADDRESS_STANDALONE],
             advanced_config: ['connection_timeout' => 5000], # Allow longer timeout for TLS connection
             context: stream_context_create(['ssl' => ['verify_peer' => false]])
@@ -7929,7 +7933,8 @@ if (extension_loaded("valkey_glide") || dl("' . __DIR__ . '/../modules/valkey_gl
 
     public function testTlsInsecureConfig()
     {
-        $client = new ValkeyGlide(
+        $client = new ValkeyGlide();
+        $client->connect(
             addresses: [self::TLS_ADDRESS_STANDALONE],
             use_tls: true,
             advanced_config: [
@@ -8084,7 +8089,8 @@ if (extension_loaded("valkey_glide") || dl("' . __DIR__ . '/../modules/valkey_gl
         $this->assertTrue(class_exists('RedisCluster'), 'RedisCluster class alias should exist');
         $this->assertTrue(class_exists('RedisException'), 'RedisException class alias should exist');
 
-        $redis = new Redis([['host' => $this->getHost(), 'port' => $this->getPort()]]);
+        $redis = new Redis();
+        $redis->connect(addresses: [['host' => $this->getHost(), 'port' => $this->getPort()]]);
         $this->assertTrue($redis instanceof Redis, 'Instance should be Redis');
         $this->assertTrue($redis instanceof ValkeyGlide, 'Instance should be ValkeyGlide');
 
@@ -8097,7 +8103,8 @@ if (extension_loaded("valkey_glide") || dl("' . __DIR__ . '/../modules/valkey_gl
         $redis->del(['phpredis_alias_test']);
 
         try {
-            $badRedis = new Redis([['host' => 'localhost', 'port' => 9999]]);
+            $badRedis = new Redis();
+            $badRedis->connect(addresses: [['host' => 'localhost', 'port' => 9999]]);
             $badRedis->ping();
             $this->fail('Expected RedisException to be thrown');
         } catch (RedisException $e) {

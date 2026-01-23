@@ -17,10 +17,10 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test creating ValkeyGlideCluster with basic configuration
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]], // addresses array format
-            false, // use_tls
-            $this->getAuth(), // credentials
-            ValkeyGlide::READ_FROM_PRIMARY // read_from
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_PRIMARY
         );
 
         // Verify the connection works with a simple ping
@@ -43,7 +43,7 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
             ['host' => '127.0.0.1', 'port' => 7003]
         ];
 
-        $valkey_glide = new ValkeyGlideCluster($addresses, false, $this->getAuth());
+        $valkey_glide = new ValkeyGlideCluster(addresses: $addresses, use_tls: false, credentials: $this->getAuth());
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
         $valkey_glide->close();
     }
@@ -56,9 +56,9 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with TLS explicitly disabled
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false, // use_tls disabled
-            $this->getAuth()
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth()
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -87,9 +87,9 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with no credentials (null)
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            null // no credentials
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: null // no credentials
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -100,9 +100,9 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with password-only credentials
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 5001]],
-            false,
-            ['username' => '', 'password' => 'dummy_password'] // password credentials
+            addresses: [['host' => '127.0.0.1', 'port' => 5001]],
+            use_tls: false,
+            credentials: ['username' => '', 'password' => 'dummy_password'] // password credentials
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -120,7 +120,7 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
         $valkey_glide = null;
         try {
             $credentials = ['username' => 'invalid_user', 'password' => 'invalid_password'];
-            $valkey_glide = new ValkeyGlideCluster($addresses, false, $credentials);
+            $valkey_glide = new ValkeyGlideCluster(addresses: $addresses, use_tls: false, credentials: $credentials);
             $this->fail("Should throw an exception when running commands with invalid authentication");
         } catch (Exception $e) {
             $this->assertStringContains("WRONGPASS", $e->getMessage(), "Exception should indicate authentication failure");
@@ -138,10 +138,10 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with READ_FROM_PRIMARY strategy
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_PRIMARY
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_PRIMARY
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -152,10 +152,10 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with READ_FROM_PREFER_REPLICA strategy
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_PREFER_REPLICA
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_PREFER_REPLICA
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -166,10 +166,10 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with READ_FROM_AZ_AFFINITY strategy
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_AZ_AFFINITY
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_AZ_AFFINITY
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -180,10 +180,10 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with READ_FROM_AZ_AFFINITY_REPLICAS_AND_PRIMARY strategy
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_AZ_AFFINITY_REPLICAS_AND_PRIMARY
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_AZ_AFFINITY_REPLICAS_AND_PRIMARY
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -198,11 +198,11 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with 5 second timeout
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_PRIMARY,
-            5000 // 5 second timeout
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_PRIMARY,
+            request_timeout: 5000 // 5 second timeout
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -213,11 +213,11 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with 1 second timeout
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_PRIMARY,
-            10 // 10 millisecond timeout
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_PRIMARY,
+            request_timeout: 10 // 10 millisecond timeout
         );
 
         $res = $valkey_glide->rawcommand(['type' => 'primarySlotKey', 'key' => 'test'], "DEBUG", "SLEEP", "2");
@@ -235,11 +235,11 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with 10 second timeout
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_PRIMARY,
-            10000 // 10 second timeout
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_PRIMARY,
+            request_timeout: 10000 // 10 second timeout
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -256,12 +256,12 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
         $reconnectStrategy = ['num_of_retries' => 5];
 
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_PRIMARY,
-            null,
-            $reconnectStrategy
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_PRIMARY,
+            request_timeout: null,
+            reconnect_strategy: $reconnectStrategy
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -279,12 +279,12 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
         ];
 
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_PRIMARY,
-            null,
-            $reconnectStrategy
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_PRIMARY,
+            request_timeout: null,
+            reconnect_strategy: $reconnectStrategy
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -300,13 +300,13 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
         // Test with custom client name
 
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_PRIMARY,
-            null,
-            null,
-            "test-cluster-client-"
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_PRIMARY,
+            request_timeout: null,
+            reconnect_strategy: null,
+            client_name: "test-cluster-client-"
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -322,14 +322,14 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with periodic checks enabled (default)
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_PRIMARY,
-            null,
-            null,
-            null,
-            ValkeyGlideCluster::PERIODIC_CHECK_ENABLED_DEFAULT_CONFIGS
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_PRIMARY,
+            request_timeout: null,
+            reconnect_strategy: null,
+            client_name: null,
+            periodic_checks: ValkeyGlideCluster::PERIODIC_CHECK_ENABLED_DEFAULT_CONFIGS
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -340,14 +340,14 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with periodic checks disabled
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_PRIMARY,
-            null,
-            null,
-            null,
-            ValkeyGlideCluster::PERIODIC_CHECK_DISABLED
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_PRIMARY,
+            request_timeout: null,
+            reconnect_strategy: null,
+            client_name: null,
+            periodic_checks: ValkeyGlideCluster::PERIODIC_CHECK_DISABLED
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -362,15 +362,15 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with client availability zone
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_PRIMARY,
-            null,
-            null,
-            null,
-            null,
-            'us-east-1a' // client availability zone
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_PRIMARY,
+            request_timeout: null,
+            reconnect_strategy: null,
+            client_name: null,
+            periodic_checks: null,
+            client_az: 'us-east-1a' // client availability zone
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -381,15 +381,15 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with different client availability zone
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_PRIMARY,
-            null,
-            null,
-            null,
-            null,
-            'eu-west-1b' // different client availability zone
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_PRIMARY,
+            request_timeout: null,
+            reconnect_strategy: null,
+            client_name: null,
+            periodic_checks: null,
+            client_az: 'eu-west-1b' // different client availability zone
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -409,16 +409,16 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
         ];
 
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_PRIMARY,
-            null,
-            null,
-            null,
-            null,
-            null,
-            $advancedConfig
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_PRIMARY,
+            request_timeout: null,
+            reconnect_strategy: null,
+            client_name: null,
+            periodic_checks: null,
+            client_az: null,
+            advanced_config: $advancedConfig
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -438,17 +438,17 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
             $key =
             // Create monitoring client and get the initial count.
             $valkey_glide_monitoring = new ValkeyGlideCluster(
-                [['host' => '127.0.0.1', 'port' => 7001]],
-                false,
-                $this->getAuth(),
-                ValkeyGlide::READ_FROM_PRIMARY,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                false
+                addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+                use_tls: false,
+                credentials: $this->getAuth(),
+                read_from: ValkeyGlide::READ_FROM_PRIMARY,
+                request_timeout: null,
+                reconnect_strategy: null,
+                client_name: null,
+                periodic_checks: null,
+                client_az: null,
+                advanced_config: null,
+                lazy_connect: false
             );
             $route = ['type' => 'primarySlotKey', 'key' => 'test'];
             $clients = $valkey_glide_monitoring->client($route, 'list');
@@ -456,17 +456,17 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
 
             // Test with lazy connection enabled
             $valkey_glide_lazy = new ValkeyGlideCluster(
-                [['host' => '127.0.0.1', 'port' => 7001]],
-                false,
-                $this->getAuth(),
-                ValkeyGlide::READ_FROM_PRIMARY,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                true // lazy connect enabled
+                addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+                use_tls: false,
+                credentials: $this->getAuth(),
+                read_from: ValkeyGlide::READ_FROM_PRIMARY,
+                request_timeout: null,
+                reconnect_strategy: null,
+                client_name: null,
+                periodic_checks: null,
+                client_az: null,
+                advanced_config: null,
+                lazy_connect: true // lazy connect enabled
             );
             // Lazy connection should retain the same client count.
             $clients = $valkey_glide_monitoring->client($route, 'list');
@@ -486,17 +486,17 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with lazy connection disabled
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,
-            $this->getAuth(),
-            ValkeyGlide::READ_FROM_PRIMARY,
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-            false // lazy connect disabled
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,
+            credentials: $this->getAuth(),
+            read_from: ValkeyGlide::READ_FROM_PRIMARY,
+            request_timeout: null,
+            reconnect_strategy: null,
+            client_name: null,
+            periodic_checks: null,
+            client_az: null,
+            advanced_config: null,
+            lazy_connect: false // lazy connect disabled
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -520,17 +520,17 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
         $advancedConfig = ['connection_timeout' => 5000];
 
         $valkey_glide = new ValkeyGlideCluster(
-            $addresses,                                     // addresses
-            false,                                          // use_tls
-            $credentials,                                   // credentials
-            ValkeyGlide::READ_FROM_PRIMARY,                // read_from
-            3000,                                           // request_timeout
-            $reconnectStrategy,                             // reconnect_strategy
-            $clientName,                                    // client_name
-            ValkeyGlideCluster::PERIODIC_CHECK_ENABLED_DEFAULT_CONFIGS, // periodic_checks
-            'us-west-2a',                                   // client_az
-            $advancedConfig,                                // advanced_config
-            false                                           // lazy_connect
+            addresses: $addresses,
+            use_tls: false,
+            credentials: $credentials,
+            read_from: ValkeyGlide::READ_FROM_PRIMARY,
+            request_timeout: 3000,
+            reconnect_strategy: $reconnectStrategy,
+            client_name: $clientName,
+            periodic_checks: ValkeyGlideCluster::PERIODIC_CHECK_ENABLED_DEFAULT_CONFIGS,
+            client_az: 'us-west-2a',
+            advanced_config: $advancedConfig,
+            lazy_connect: false
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -548,13 +548,13 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         // Test with commonly used parameter combination
         $valkey_glide = new ValkeyGlideCluster(
-            [['host' => '127.0.0.1', 'port' => 7001]],
-            false,                                      // use_tls
-            $this->getAuth(),                          // credentials
-            ValkeyGlide::READ_FROM_PREFER_REPLICA,     // read_from
-            5000,                                       // request_timeout
-            ['num_of_retries' => 5],                   // reconnect_strategy
-            'common-config-client'                      // client_name
+            addresses: [['host' => '127.0.0.1', 'port' => 7001]],
+            use_tls: false,                                      // use_tls
+            credentials: $this->getAuth(),                          // credentials
+            read_from: ValkeyGlide::READ_FROM_PREFER_REPLICA,     // read_from
+            request_timeout: 5000,                                       // request_timeout
+            reconnect_strategy: ['num_of_retries' => 5],                   // reconnect_strategy
+            client_name: 'common-config-client'                      // client_name
         );
 
         $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -575,18 +575,18 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
         // Test that constructor accepts all 12 parameters including database_id
         try {
             $valkey_glide = new ValkeyGlideCluster(
-                $addresses,                          // addresses
-                false,                               // use_tls
-                null,                                // credentials
-                ValkeyGlide::READ_FROM_PRIMARY,     // read_from
-                null,                                // request_timeout
-                null,                                // reconnect_strategy
-                null,                                // client_name
-                null,                                // periodic_checks
-                null,                                // client_az
-                null,                                // advanced_config
-                null,                                // lazy_connect
-                0                                    // database_id
+                addresses: $addresses,
+                use_tls: false,
+                credentials: null,
+                read_from: ValkeyGlide::READ_FROM_PRIMARY,
+                request_timeout: null,
+                reconnect_strategy: null,
+                client_name: null,
+                periodic_checks: null,
+                client_az: null,
+                advanced_config: null,
+                lazy_connect: null,
+                database_id: 0
             );
 
             $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -606,18 +606,18 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         try {
             $valkey_glide = new ValkeyGlideCluster(
-                [['host' => '127.0.0.1', 'port' => 7001]],                          // addresses
-                false,                               // use_tls
-                null,                                // credentials
-                ValkeyGlide::READ_FROM_PRIMARY,     // read_from
-                null,                                // request_timeout
-                null,                                // reconnect_strategy
-                null,                                // client_name
-                null,                                // periodic_checks
-                null,                                // client_az
-                null,                                // advanced_config
-                null,                                // lazy_connect
-                null                                 // database_id = null (default)
+                addresses: [['host' => '127.0.0.1', 'port' => 7001]],                          // addresses
+                use_tls: false,                               // use_tls
+                credentials: null,                                // credentials
+                read_from: ValkeyGlide::READ_FROM_PRIMARY,     // read_from
+                request_timeout: null,                                // request_timeout
+                reconnect_strategy: null,                                // reconnect_strategy
+                client_name: null,                                // client_name
+                periodic_checks: null,                                // periodic_checks
+                client_az: null,                                // client_az
+                advanced_config: null,                                // advanced_config
+                lazy_connect: null,                                // lazy_connect
+                database_id: null                                 // database_id = null (default)
             );
 
             $this->assertTrue($valkey_glide->ping(['type' => 'primarySlotKey', 'key' => 'test']));
@@ -640,17 +640,17 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
         try {
             // Test with 11 parameters (without database_id) - should still work
             $valkey_glide = new ValkeyGlideCluster(
-                $addresses,                          // addresses
-                false,                               // use_tls
-                null,                                // credentials
-                ValkeyGlide::READ_FROM_PRIMARY,     // read_from
-                null,                                // request_timeout
-                null,                                // reconnect_strategy
-                null,                                // client_name
-                null,                                // periodic_checks
-                null,                                // client_az
-                null,                                // advanced_config
-                null                                 // lazy_connect
+                addresses: $addresses,
+                use_tls: false,
+                credentials: null,
+                read_from: ValkeyGlide::READ_FROM_PRIMARY,
+                request_timeout: null,
+                reconnect_strategy: null,
+                client_name: null,
+                periodic_checks: null,
+                client_az: null,
+                advanced_config: null,
+                lazy_connect: null
                 // database_id omitted - should default to null/0
             );
 
@@ -671,31 +671,26 @@ class ValkeyGlideClusterFeaturesTest extends ValkeyGlideClusterBaseTest
     {
         $addresses = [['host' => 'localhost', 'port' => 7001]];
 
-        // Test with too many parameters (14) - should fail
         try {
             $client = new ValkeyGlideCluster(
-                $addresses,                          // 1
-                false,                               // 2
-                null,                                // 3
-                ValkeyGlide::READ_FROM_PRIMARY,     // 4
-                null,                                // 5
-                null,                                // 6
-                null,                                // 7
-                null,                                // 8
-                null,                                // 9
-                null,                                // 10
-                null,                                // 11
-                0,                                   // 12 - database_id
-                null,                                // 13 - context
-                'extra_param'                        // 14 - should cause error
+                addresses: $addresses,
+                use_tls: false,
+                credentials: null,
+                read_from: ValkeyGlide::READ_FROM_PRIMARY,
+                request_timeout: null,
+                reconnect_strategy: null,
+                client_name: null,
+                periodic_checks: null,
+                client_az: null,
+                advanced_config: null,
+                lazy_connect: null,
+                database_id: 0
             );
 
-            $this->fail('Expected ArgumentCountError for too many parameters');
-        } catch (ArgumentCountError $e) {
-            // This is expected - too many parameters
-            $this->assertStringContains('expects at most 13 arguments', $e->getMessage());
+            $this->assertTrue($client->ping(['type' => 'primarySlotKey', 'key' => 'test']));
+            $client->close();
         } catch (Exception $e) {
-            $this->fail('Expected ArgumentCountError, got: ' . $e->getMessage());
+            $this->fail('Constructor should accept all valid parameters: ' . $e->getMessage());
         }
     }
 

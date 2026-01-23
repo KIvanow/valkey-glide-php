@@ -13,12 +13,12 @@ ini_set('display_errors', 1);
 
 // Check if extension is loaded
 if (!extension_loaded('valkey_glide')) {
-    echo "❌ Valkey GLIDE extension is not loaded!\n";
+    echo "Valkey GLIDE extension is not loaded!\n";
     echo "Please install and enable the valkey_glide extension.\n";
     exit(1);
 }
 
-echo "🚀 Valkey GLIDE PHP - Cluster Client Example\n";
+echo " Valkey GLIDE PHP - Cluster Client Example\n";
 echo "===========================================\n\n";
 
 // Configuration - can be customized via environment variables
@@ -45,22 +45,22 @@ $client = null;
 try {
     // Create Valkey GLIDE cluster client
     $client = new ValkeyGlideCluster(
-        $addresses,               // Cluster node addresses
-        $use_tls,                // Use TLS
-        $password ? ['password' => $password] : null, // Credentials
-        0,                       // Read from PRIMARY (0)
-        5000                     // Request timeout (5 seconds)
+        addresses: $addresses,
+        use_tls: $use_tls,
+        credentials: $password ? ['password' => $password] : null,
+        read_from: 0,
+        request_timeout: 5000
     );
 
-    echo "✅ Connected to cluster successfully!\n\n";
+    echo "Connected to cluster successfully!\n\n";
 
     // Test connection with PING
-    echo "🏓 Testing cluster connection...\n";
+    echo " Testing cluster connection...\n";
     $pong = $client->ping();
     echo "PING response: {$pong}\n\n";
 
     // Cluster-specific operations
-    echo "🌐 Cluster Information:\n";
+    echo " Cluster Information:\n";
     echo "----------------------\n";
 
 
@@ -168,7 +168,7 @@ try {
     echo "\n";
 
     // Cross-slot operations (might fail in strict cluster mode)
-    echo "⚠️  Cross-slot Operations:\n";
+    echo "  Cross-slot Operations:\n";
     echo "-------------------------\n";
 
     try {
@@ -177,20 +177,20 @@ try {
             'cross:key1' => 'value1',
             'cross:key2' => 'value2'
         ]);
-        echo "✅ MSET across different slots succeeded\n";
+        echo "MSET across different slots succeeded\n";
     } catch (Exception $e) {
-        echo "❌ MSET failed (expected in cluster): " . $e->getMessage() . "\n";
+        echo "MSET failed (expected in cluster): " . $e->getMessage() . "\n";
 
         // Alternative: Set keys individually
         echo "Setting keys individually instead...\n";
         $client->set('cross:key1', 'value1');
         $client->set('cross:key2', 'value2');
-        echo "✅ Individual SET operations successful\n";
+        echo "Individual SET operations successful\n";
     }
     echo "\n";
 
     // Cluster-aware patterns
-    echo "🔧 Recommended Cluster Patterns:\n";
+    echo " Recommended Cluster Patterns:\n";
     echo "-------------------------------\n";
 
     // Pattern 1: User-specific operations with hash tags
@@ -227,9 +227,9 @@ try {
     }
     echo "Deleted {$deletedCount} keys\n";
 
-    echo "\n✅ Cluster example completed successfully!\n";
+    echo "\nCluster example completed successfully!\n";
 } catch (Exception $e) {
-    echo "❌ Error: " . $e->getMessage() . "\n";
+    echo "Error: " . $e->getMessage() . "\n";
     echo "Error details: " . $e->getTraceAsString() . "\n";
 
     // Common cluster connection issues
@@ -244,11 +244,11 @@ try {
     // Always close the connection
     if ($client) {
         $client->close();
-        echo "🔌 Cluster connection closed.\n";
+        echo " Cluster connection closed.\n";
     }
 }
 
-echo "\n📚 Next Steps:\n";
+echo "\n Next Steps:\n";
 echo "- Learn about configuration options: php basic/configuration.php\n";
 echo "- Try advanced cluster features in the advanced/ directory\n";
 echo "- Explore data structure examples optimized for cluster mode\n";

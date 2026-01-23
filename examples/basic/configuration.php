@@ -13,17 +13,17 @@ ini_set('display_errors', 1);
 
 // Check if extension is loaded
 if (!extension_loaded('valkey_glide')) {
-    echo "❌ Valkey GLIDE extension is not loaded!\n";
+    echo "Valkey GLIDE extension is not loaded!\n";
     exit(1);
 }
 
-echo "🚀 Valkey GLIDE PHP - Configuration Examples\n";
+echo " Valkey GLIDE PHP - Configuration Examples\n";
 echo "==========================================\n\n";
 
 // =============================================================================
 // BASIC CONFIGURATION
 // =============================================================================
-echo "📋 Basic Configuration:\n";
+echo " Basic Configuration:\n";
 echo "----------------------\n";
 
 // Minimal configuration - just host and port
@@ -33,19 +33,20 @@ $basicAddresses = [
 
 try {
     echo "Creating client with minimal configuration...\n";
-    $basicClient = new ValkeyGlide($basicAddresses);
-    echo "✅ Basic client created successfully\n";
+    $basicClient = new ValkeyGlide();
+    $basicClient->connect(addresses: $basicAddresses);
+    echo "Basic client created successfully\n";
     $basicClient->ping();
     $basicClient->close();
 } catch (Exception $e) {
-    echo "❌ Basic client failed: " . $e->getMessage() . "\n";
+    echo "Basic client failed: " . $e->getMessage() . "\n";
 }
 echo "\n";
 
 // =============================================================================
 // ADVANCED STANDALONE CONFIGURATION
 // =============================================================================
-echo "🔧 Advanced Standalone Configuration:\n";
+echo " Advanced Standalone Configuration:\n";
 echo "------------------------------------\n";
 
 $standaloneAddresses = [
@@ -74,38 +75,34 @@ $lazy_connect = false; // Whether to connect lazily
 
 try {
     echo "Creating advanced standalone client...\n";
-    $advancedClient = new ValkeyGlide(
-        $standaloneAddresses,
-        $use_tls,
-        $credentials,
-        $read_from,
-        $request_timeout,
-        $reconnect_strategy,
-        $database_id,
-        $client_name,
-        $inflight_requests_limit,
-        $client_az,
-        $advanced_config,
-        $lazy_connect
+    $advancedClient = new ValkeyGlide();
+    $advancedClient->connect(
+        addresses: $standaloneAddresses,
+        use_tls: $use_tls,
+        credentials: $credentials,
+        read_from: $read_from,
+        request_timeout: $request_timeout,
+        reconnect_strategy: $reconnect_strategy,
+        database_id: $database_id,
+        client_name: $client_name,
+        client_az: $client_az,
+        advanced_config: $advanced_config,
+        lazy_connect: $lazy_connect
     );
 
-    echo "✅ Advanced standalone client created successfully\n";
-
-    // Show client info
-    $info = $advancedClient->client_info();
-    echo "Client info: " . json_encode($info) . "\n";
+    echo "Advanced standalone client created successfully\n";
 
     $advancedClient->ping();
     $advancedClient->close();
 } catch (Exception $e) {
-    echo "❌ Advanced standalone client failed: " . $e->getMessage() . "\n";
+    echo "Advanced standalone client failed: " . $e->getMessage() . "\n";
 }
 echo "\n";
 
 // =============================================================================
 // CLUSTER CONFIGURATION
 // =============================================================================
-echo "🌐 Cluster Configuration:\n";
+echo " Cluster Configuration:\n";
 echo "------------------------\n";
 
 $clusterAddresses = [
@@ -117,39 +114,38 @@ $clusterAddresses = [
 try {
     echo "Creating cluster client with advanced options...\n";
     $clusterClient = new ValkeyGlideCluster(
-        $clusterAddresses,
-        false,                    // use_tls
-        null,                     // credentials
-        0,                        // read_from (PRIMARY)
-        3000,                     // request_timeout
-        [                         // reconnect_strategy
+        addresses: $clusterAddresses,
+        use_tls: false,
+        credentials: null,
+        read_from: 0,
+        request_timeout: 3000,
+        reconnect_strategy: [
             'num_of_retries' => 5,
             'factor' => 1.5,
             'exponent_base' => 2
         ],
-        null,                     // database_id (not used in cluster)
-        'cluster-example-client', // client_name
-        500,                      // inflight_requests_limit
-        null,                     // client_az
-        [                         // advanced_config
+        client_name: 'cluster-example-client',
+        periodic_checks: 500,
+        client_az: null,
+        advanced_config: [
             'connection_timeout' => 10000,
             'socket_timeout' => 5000
         ],
-        false                     // lazy_connect
+        lazy_connect: false
     );
 
-    echo "✅ Cluster client created successfully\n";
+    echo "Cluster client created successfully\n";
     $clusterClient->ping();
     $clusterClient->close();
 } catch (Exception $e) {
-    echo "❌ Cluster client failed (this is expected if no cluster is running): " . $e->getMessage() . "\n";
+    echo "Cluster client failed (this is expected if no cluster is running): " . $e->getMessage() . "\n";
 }
 echo "\n";
 
 // =============================================================================
 // CONFIGURATION WITH AUTHENTICATION
 // =============================================================================
-echo "🔐 Authentication Configuration:\n";
+echo " Authentication Configuration:\n";
 echo "-------------------------------\n";
 
 // Example with username/password (for servers that support ACL)
@@ -157,98 +153,102 @@ $authAddresses = [['host' => 'localhost', 'port' => 6379]];
 
 echo "Creating client with authentication (will fail if no auth configured)...\n";
 try {
-    $authClient = new ValkeyGlide(
-        $authAddresses,
-        false,                    // use_tls
-        [                         // credentials
+    $authClient = new ValkeyGlide();
+    $authClient->connect(
+        addresses: $authAddresses,
+        use_tls: false,
+        credentials: [
             'username' => 'default',
             'password' => 'your-password-here'
         ],
-        0,                        // read_from
-        5000                      // request_timeout
+        read_from: 0,
+        request_timeout: 5000
     );
 
-    echo "✅ Authenticated client created\n";
+    echo "Authenticated client created\n";
     $authClient->ping();
     $authClient->close();
 } catch (Exception $e) {
-    echo "❌ Authentication failed (expected): " . $e->getMessage() . "\n";
+    echo "Authentication failed (expected): " . $e->getMessage() . "\n";
 }
 
 // Password-only authentication (older Redis/Valkey style)
 try {
-    $passwordClient = new ValkeyGlide(
-        $authAddresses,
-        false,                    // use_tls
-        ['password' => 'your-password-here'], // password only
-        0,                        // read_from
-        5000                      // request_timeout
+    $passwordClient = new ValkeyGlide();
+    $passwordClient->connect(
+        addresses: $authAddresses,
+        use_tls: false,
+        credentials: ['password' => 'your-password-here'],
+        read_from: 0,
+        request_timeout: 5000
     );
 
-    echo "✅ Password-only client created\n";
+    echo "Password-only client created\n";
     $passwordClient->close();
 } catch (Exception $e) {
-    echo "❌ Password authentication failed (expected): " . $e->getMessage() . "\n";
+    echo "Password authentication failed (expected): " . $e->getMessage() . "\n";
 }
 echo "\n";
 
 // =============================================================================
 // IAM AUTHENTICATION (AWS ElastiCache/MemoryDB)
 // =============================================================================
-echo "☁️  IAM Authentication Configuration (AWS):\n";
+echo "  IAM Authentication Configuration (AWS):\n";
 echo "-------------------------------------------\n";
 
 // IAM authentication for AWS ElastiCache
 echo "Creating client with IAM authentication for ElastiCache...\n";
 try {
-    $iamClient = new ValkeyGlide(
-        [['host' => 'my-cluster.xxxxx.use1.cache.amazonaws.com', 'port' => 6379]],
-        true,                     // use_tls (REQUIRED for IAM)
-        [                         // credentials
-            'username' => 'my-iam-user',  // REQUIRED for IAM
+    $iamClient = new ValkeyGlide();
+    $iamClient->connect(
+        addresses: [['host' => 'my-cluster.xxxxx.use1.cache.amazonaws.com', 'port' => 6379]],
+        use_tls: true,
+        credentials: [
+            'username' => 'my-iam-user',
             'iamConfig' => [
                 ValkeyGlide::IAM_CONFIG_CLUSTER_NAME => 'my-cluster',
                 ValkeyGlide::IAM_CONFIG_REGION => 'us-east-1',
                 ValkeyGlide::IAM_CONFIG_SERVICE => ValkeyGlide::IAM_SERVICE_ELASTICACHE,
-                ValkeyGlide::IAM_CONFIG_REFRESH_INTERVAL => 300  // Optional
+                ValkeyGlide::IAM_CONFIG_REFRESH_INTERVAL => 300
             ]
         ],
-        0,                        // read_from
-        5000                      // request_timeout
+        read_from: 0,
+        request_timeout: 5000
     );
 
-    echo "✅ IAM ElastiCache client created\n";
+    echo "IAM ElastiCache client created\n";
     $iamClient->ping();
     $iamClient->close();
 } catch (Exception $e) {
-    echo "❌ IAM ElastiCache authentication failed (expected if not on AWS): " . $e->getMessage() . "\n";
+    echo "IAM ElastiCache authentication failed (expected if not on AWS): " . $e->getMessage() . "\n";
 }
 
 // IAM authentication for AWS MemoryDB
 echo "Creating client with IAM authentication for MemoryDB...\n";
 try {
-    $memorydbClient = new ValkeyGlide(
-        [['host' => 'clustercfg.my-memorydb.xxxxx.memorydb.us-east-1.amazonaws.com', 'port' => 6379]],
-        true,                     // use_tls (REQUIRED for IAM)
-        [                         // credentials
+    $memorydbClient = new ValkeyGlide();
+    $memorydbClient->connect(
+        addresses: [['host' => 'clustercfg.my-memorydb.xxxxx.memorydb.us-east-1.amazonaws.com', 'port' => 6379]],
+        use_tls: true,
+        credentials: [
             'username' => 'my-iam-user',
             'iamConfig' => [
                 ValkeyGlide::IAM_CONFIG_CLUSTER_NAME => 'my-memorydb',
                 ValkeyGlide::IAM_CONFIG_REGION => 'us-east-1',
                 ValkeyGlide::IAM_CONFIG_SERVICE => ValkeyGlide::IAM_SERVICE_MEMORYDB,
-                ValkeyGlide::IAM_CONFIG_REFRESH_INTERVAL => 120  // Refresh every 2 minutes
+                ValkeyGlide::IAM_CONFIG_REFRESH_INTERVAL => 120
             ]
         ]
     );
 
-    echo "✅ IAM MemoryDB client created\n";
+    echo "IAM MemoryDB client created\n";
     $memorydbClient->ping();
     $memorydbClient->close();
 } catch (Exception $e) {
-    echo "❌ IAM MemoryDB authentication failed (expected if not on AWS): " . $e->getMessage() . "\n";
+    echo "IAM MemoryDB authentication failed (expected if not on AWS): " . $e->getMessage() . "\n";
 }
 
-echo "\nℹ️  IAM Authentication Notes:\n";
+echo "\n  IAM Authentication Notes:\n";
 echo "  - Requires TLS to be enabled (use_tls: true)\n";
 echo "  - Username is REQUIRED for IAM authentication\n";
 echo "  - AWS credentials must be configured (IAM role, env vars, or credentials file)\n";
@@ -260,33 +260,34 @@ echo "\n";
 // =============================================================================
 // TLS CONFIGURATION
 // =============================================================================
-echo "🔒 TLS Configuration:\n";
+echo " TLS Configuration:\n";
 echo "--------------------\n";
 
 $tlsAddresses = [['host' => 'localhost', 'port' => 6380]]; // Common TLS port
 
 echo "Creating client with TLS (will fail if no TLS server)...\n";
 try {
-    $tlsClient = new ValkeyGlide(
-        $tlsAddresses,
-        true,                     // use_tls = true
-        null,                     // credentials
-        0,                        // read_from
-        5000                      // request_timeout
+    $tlsClient = new ValkeyGlide();
+    $tlsClient->connect(
+        addresses: $tlsAddresses,
+        use_tls: true,
+        credentials: null,
+        read_from: 0,
+        request_timeout: 5000
     );
 
-    echo "✅ TLS client created\n";
+    echo "TLS client created\n";
     $tlsClient->ping();
     $tlsClient->close();
 } catch (Exception $e) {
-    echo "❌ TLS connection failed (expected): " . $e->getMessage() . "\n";
+    echo "TLS connection failed (expected): " . $e->getMessage() . "\n";
 }
 echo "\n";
 
 // =============================================================================
 // READ PREFERENCE EXAMPLES
 // =============================================================================
-echo "📖 Read Preference Configuration:\n";
+echo " Read Preference Configuration:\n";
 echo "--------------------------------\n";
 
 // Read preferences for replica reads
@@ -300,18 +301,19 @@ foreach ($readPreferences as $readFrom => $description) {
     echo "Read preference {$readFrom}: {$description}\n";
 
     try {
-        $readClient = new ValkeyGlide(
-            $standaloneAddresses,
-            false,                // use_tls
-            null,                 // credentials
-            $readFrom,            // read_from preference
-            2000                  // request_timeout
+        $readClient = new ValkeyGlide();
+        $readClient->connect(
+            addresses: $standaloneAddresses,
+            use_tls: false,
+            credentials: null,
+            read_from: $readFrom,
+            request_timeout: 2000
         );
 
-        echo "  ✅ Client created with read preference {$readFrom}\n";
+        echo "  Client created with read preference {$readFrom}\n";
         $readClient->close();
     } catch (Exception $e) {
-        echo "  ❌ Read preference {$readFrom} failed: " . $e->getMessage() . "\n";
+        echo "  Read preference {$readFrom} failed: " . $e->getMessage() . "\n";
     }
 }
 echo "\n";
@@ -319,7 +321,7 @@ echo "\n";
 // =============================================================================
 // TIMEOUT CONFIGURATION
 // =============================================================================
-echo "⏱️  Timeout Configuration Examples:\n";
+echo "  Timeout Configuration Examples:\n";
 echo "----------------------------------\n";
 
 $timeoutExamples = [
@@ -333,25 +335,26 @@ foreach ($timeoutExamples as $timeout => $description) {
     echo "Creating client with {$description} timeout...\n";
 
     try {
-        $timeoutClient = new ValkeyGlide(
-            $standaloneAddresses,
-            false,                // use_tls
-            null,                 // credentials
-            0,                    // read_from
-            $timeout              // request_timeout
+        $timeoutClient = new ValkeyGlide();
+        $timeoutClient->connect(
+            addresses: $standaloneAddresses,
+            use_tls: false,
+            credentials: null,
+            read_from: 0,
+            request_timeout: $timeout
         );
 
-        echo "  ✅ Client created with {$timeout}ms timeout\n";
+        echo "  Client created with {$timeout}ms timeout\n";
 
         // Test with a quick operation
         $start = microtime(true);
         $timeoutClient->ping();
         $duration = (microtime(true) - $start) * 1000;
-        echo "  PING took {$duration:.2f}ms\n";
+        echo "  PING took " . number_format($duration, 2) . "ms\n";
 
         $timeoutClient->close();
     } catch (Exception $e) {
-        echo "  ❌ Timeout {$timeout} failed: " . $e->getMessage() . "\n";
+        echo "  Timeout {$timeout} failed: " . $e->getMessage() . "\n";
     }
 }
 echo "\n";
@@ -359,7 +362,7 @@ echo "\n";
 // =============================================================================
 // RECONNECTION STRATEGY
 // =============================================================================
-echo "🔄 Reconnection Strategy Examples:\n";
+echo " Reconnection Strategy Examples:\n";
 echo "----------------------------------\n";
 
 $reconnectStrategies = [
@@ -387,19 +390,20 @@ foreach ($reconnectStrategies as $name => $strategy) {
     echo "  Exponent base: {$strategy['exponent_base']}\n";
 
     try {
-        $reconnectClient = new ValkeyGlide(
-            $standaloneAddresses,
-            false,                // use_tls
-            null,                 // credentials
-            0,                    // read_from
-            5000,                 // request_timeout
-            $strategy             // reconnect_strategy
+        $reconnectClient = new ValkeyGlide();
+        $reconnectClient->connect(
+            addresses: $standaloneAddresses,
+            use_tls: false,
+            credentials: null,
+            read_from: 0,
+            request_timeout: 5000,
+            reconnect_strategy: $strategy
         );
 
-        echo "  ✅ Client created with '{$name}' reconnection strategy\n";
+        echo "  Client created with '{$name}' reconnection strategy\n";
         $reconnectClient->close();
     } catch (Exception $e) {
-        echo "  ❌ Strategy '{$name}' failed: " . $e->getMessage() . "\n";
+        echo "  Strategy '{$name}' failed: " . $e->getMessage() . "\n";
     }
     echo "\n";
 }
@@ -407,7 +411,7 @@ foreach ($reconnectStrategies as $name => $strategy) {
 // =============================================================================
 // ENVIRONMENT-BASED CONFIGURATION
 // =============================================================================
-echo "🌍 Environment-based Configuration:\n";
+echo " Environment-based Configuration:\n";
 echo "----------------------------------\n";
 
 echo "Configuration via environment variables:\n";
@@ -435,24 +439,104 @@ $envDatabase = (int)$envConfig['VALKEY_DATABASE'];
 
 try {
     echo "\nCreating client from environment configuration...\n";
-    $envClient = new ValkeyGlide(
-        $envAddresses,
-        $envUseTls,
-        $envCredentials,
-        0,                        // read_from
-        $envTimeout,              // request_timeout
-        null,                     // reconnect_strategy (default)
-        $envDatabase              // database_id
+    $envClient = new ValkeyGlide();
+    $envClient->connect(
+        addresses: $envAddresses,
+        use_tls: $envUseTls,
+        credentials: $envCredentials,
+        read_from: 0,
+        request_timeout: $envTimeout,
+        reconnect_strategy: null,
+        database_id: $envDatabase
     );
 
-    echo "✅ Environment-based client created successfully\n";
+    echo "Environment-based client created successfully\n";
     $envClient->ping();
     $envClient->close();
 } catch (Exception $e) {
-    echo "❌ Environment-based client failed: " . $e->getMessage() . "\n";
+    echo "Environment-based client failed: " . $e->getMessage() . "\n";
 }
 
-echo "\n📚 Configuration Best Practices:\n";
+// =============================================================================
+// PHPREDIS-STYLE CONNECTION EXAMPLES
+// =============================================================================
+echo "\n PHPRedis-Style Connection Examples:\n";
+echo "-------------------------------------\n";
+
+// Example 1: Simple host/port connection
+echo "1. Simple host/port (PHPRedis-compatible):\n";
+try {
+    $phpredisClient = new ValkeyGlide();
+    $result = $phpredisClient->connect($envConfig['VALKEY_HOST'], (int)$envConfig['VALKEY_PORT']);
+    
+    if ($result) {
+        echo "   Connected using connect(host, port)\n";
+        $phpredisClient->set('phpredis_test', 'works');
+        echo "   Operations successful\n";
+        $phpredisClient->del(['phpredis_test']);
+        $phpredisClient->close();
+    }
+} catch (Exception $e) {
+    echo "   Failed: " . $e->getMessage() . "\n";
+}
+
+// Example 2: Connection with timeout
+echo "\n2. Connection with timeout (PHPRedis-compatible):\n";
+try {
+    $phpredisClient = new ValkeyGlide();
+    $result = $phpredisClient->connect($envConfig['VALKEY_HOST'], (int)$envConfig['VALKEY_PORT'], 2.5);
+    
+    if ($result) {
+        echo "   Connected with 2.5s timeout\n";
+        $phpredisClient->ping();
+        echo "   PING successful\n";
+        $phpredisClient->close();
+    }
+} catch (Exception $e) {
+    echo "   Failed: " . $e->getMessage() . "\n";
+}
+
+// Example 3: Comparison - ValkeyGlide style vs PHPRedis style
+echo "\n3. Style comparison:\n";
+echo "   PHPRedis style:  \$client->connect('localhost', 6379)\n";
+echo "   ValkeyGlide style: \$client->connect(addresses: [['host' => 'localhost', 'port' => 6379]])\n";
+echo "   Both styles are supported for easy migration!\n";
+
+echo "\n\n PHPRedis-Style Cluster Connection Examples:\n";
+echo "==============================================\n";
+
+// Example 1: Simple PHPRedis-style cluster connection
+echo "\n1. Simple cluster connection (PHPRedis-compatible):\n";
+try {
+    $clusterClient = new ValkeyGlideCluster(
+        seeds: [['host' => 'localhost', 'port' => 7001]]
+    );
+    echo "   Connected to cluster successfully!\n";
+    $clusterClient->close();
+} catch (Exception $e) {
+    echo "   Failed: " . $e->getMessage() . "\n";
+}
+
+// Example 2: Cluster with read_timeout
+echo "\n2. Cluster with read timeout (PHPRedis-compatible):\n";
+try {
+    $clusterClient = new ValkeyGlideCluster(
+        seeds: [['host' => 'localhost', 'port' => 7001]],
+        read_timeout: 2.5
+    );
+    echo "   Connected with 2.5s read timeout!\n";
+    $clusterClient->close();
+} catch (Exception $e) {
+    echo "   Failed: " . $e->getMessage() . "\n";
+}
+
+// Example 3: Cluster style comparison
+echo "\n3. Cluster style comparison:\n";
+echo "   PHPRedis style:  new ValkeyGlideCluster(seeds: [['host' => 'localhost', 'port' => 7001]])\n";
+echo "   ValkeyGlide style: new ValkeyGlideCluster(addresses: [['host' => 'localhost', 'port' => 7001]])\n";
+echo "   Both styles are supported for easy migration!\n";
+
+echo "\n Configuration Best Practices:\n";
 echo "-------------------------------\n";
 echo "1. Use environment variables for deployment flexibility\n";
 echo "2. Set appropriate timeouts based on your network latency\n";
@@ -464,4 +548,4 @@ echo "7. Consider read preferences when using replicas\n";
 echo "8. Limit in-flight requests to prevent memory issues\n";
 echo "9. Use lazy connection for applications with conditional Redis usage\n";
 
-echo "\n✅ Configuration examples completed!\n";
+echo "\nConfiguration examples completed!\n";

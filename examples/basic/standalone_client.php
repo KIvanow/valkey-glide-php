@@ -13,12 +13,12 @@ ini_set('display_errors', 1);
 
 // Check if extension is loaded
 if (!extension_loaded('valkey_glide')) {
-    echo "❌ Valkey GLIDE extension is not loaded!\n";
+    echo "Valkey GLIDE extension is not loaded!\n";
     echo "Please install and enable the valkey_glide extension.\n";
     exit(1);
 }
 
-echo "🚀 Valkey GLIDE PHP - Standalone Client Example\n";
+echo " Valkey GLIDE PHP - Standalone Client Example\n";
 echo "===============================================\n\n";
 
 // Configuration - can be customized via environment variables
@@ -37,18 +37,19 @@ echo "📡 Connecting to Valkey server at {$host}:{$port}\n";
 $client = null;
 try {
     // Create Valkey GLIDE client
-    $client = new ValkeyGlide(
-        $addresses,                // Server addresses
-        $use_tls,                 // Use TLS
-        $password ? ['password' => $password] : null, // Credentials
-        0,                        // Read from PRIMARY (0)
-        5000                      // Request timeout (5 seconds)
+    $client = new ValkeyGlide();
+    $client->connect(
+        addresses: $addresses,
+        use_tls: $use_tls,
+        credentials: $password ? ['password' => $password] : null,
+        read_from: 0,
+        request_timeout: 5000
     );
 
-    echo "✅ Connected successfully!\n\n";
+    echo "Connected successfully!\n\n";
 
     // Test connection with PING
-    echo "🏓 Testing connection...\n";
+    echo " Testing connection...\n";
     $pong = $client->ping();
     echo "PING response: {$pong}\n\n";
 
@@ -146,7 +147,7 @@ try {
     echo "\n";
 
     // Server information
-    echo "ℹ️  Server Information:\n";
+    echo "  Server Information:\n";
     echo "----------------------\n";
 
     // Get server info
@@ -168,20 +169,20 @@ try {
     $deletedCount = $client->del($keysToDelete);
     echo "Deleted {$deletedCount} keys\n";
 
-    echo "\n✅ Example completed successfully!\n";
+    echo "\nExample completed successfully!\n";
 } catch (Exception $e) {
-    echo "❌ Error: " . $e->getMessage() . "\n";
+    echo "Error: " . $e->getMessage() . "\n";
     echo "Error details: " . $e->getTraceAsString() . "\n";
     exit(1);
 } finally {
     // Always close the connection
     if ($client) {
         $client->close();
-        echo "🔌 Connection closed.\n";
+        echo " Connection closed.\n";
     }
 }
 
-echo "\n📚 Next Steps:\n";
+echo "\n Next Steps:\n";
 echo "- Try the cluster client example: php basic/cluster_client.php\n";
 echo "- Explore configuration options: php basic/configuration.php\n";
 echo "- Check out data structure examples in the data_structures/ directory\n";

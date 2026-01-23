@@ -83,10 +83,11 @@ $unsub_file = $argv[5];
 $error_file = $unsub_file . '.error';
 
 try {
-    $sub = new ValkeyGlide([['host' => $host, 'port' => $port]]);
+    $subscriber = new ValkeyGlide();
+    $subscriber->connect(addresses: [['host' => $host, 'port' => $port]]);
     file_put_contents($sync_file, 'ready');
 
-    $sub->subscribe([$channel], function ($client, $ch, $msg) use ($unsub_file, $channel) {
+    $subscriber->subscribe([$channel], function ($client, $ch, $msg) use ($unsub_file, $channel) {
         file_put_contents($unsub_file, 'unsubscribed');
         $client->unsubscribe([$channel]);
     });

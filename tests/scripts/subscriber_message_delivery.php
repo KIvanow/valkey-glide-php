@@ -83,10 +83,11 @@ $result_file = $argv[6];
 $error_file = $result_file . '.error';
 
 try {
-    $sub = new ValkeyGlide([['host' => $host, 'port' => $port]]);
+    $subscriber = new ValkeyGlide();
+    $subscriber->connect(addresses: [['host' => $host, 'port' => $port]]);
     file_put_contents($sync_file, 'ready');
 
-    $sub->subscribe([$channel], function ($client, $ch, $msg) use ($result_file, $expected_msg, $channel) {
+    $subscriber->subscribe([$channel], function ($client, $ch, $msg) use ($result_file, $expected_msg, $channel) {
         if ($msg === $expected_msg) {
             file_put_contents($result_file, 'SUCCESS');
         }
