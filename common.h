@@ -242,7 +242,7 @@ typedef struct {
     zend_object std;
 
     /* Runtime options (like PHPRedis OPT_* settings) */
-    bool reply_literal; /* OPT_REPLY_LITERAL: return "OK" string instead of true */
+    bool opt_reply_literal; /* OPT_REPLY_LITERAL: return "OK" string instead of true */
 } valkey_glide_object;
 
 /* For convenience we store the salt as a printable hex string which requires 2
